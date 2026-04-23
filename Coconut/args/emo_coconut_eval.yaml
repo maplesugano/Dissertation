@@ -1,6 +1,8 @@
+# need 4 gpus
+
 project: coconut
 save_path: ./ckpts
-name: gsm_coconut_simcot_eval
+name: emo-coconut-eval
 
 only_eval: True
 
@@ -8,7 +10,6 @@ coconut: True
 cot: False
 no_thoughts: False
 no_cot: False
-coconutgpt: True
 
 c_thought: 2
 epochs_per_stage: 3
@@ -17,31 +18,19 @@ pad_latent_to_max: True
 
 save_only_improve: False
 uniform_prob: 0.0
-
-# Model and checkpoint paths (use relative or env variables)
 model_id: ./pretrained/gpt2
-load_model_path: ./ckpts/gsm_coconut_simcot/checkpoint_30
-
-wandb: False
+load_model_path: ./ckpts/emo-coconut/checkpoint_25
 seed: 0
-resume: 3
+resume: 20
 bf16: False
-
-# data
-train_path: ./data/gsm_train.json
-val_path: ./data/gsm_test.json
-
+train_path: data/emotion_train.json
+val_path: data/emotion_test.json
 reset_optimizer: True
-batch_size_training: 8
+batch_size_training: 32
 debug: False
 gradient_accumulation_steps: 1
-num_epochs: 35
+num_epochs: 25
 lr: !!float "1e-4"
 weight_decay: 0.01
-
-w_prompt: False
-mode: coconutgpt_same_word_embedding
-explain_mode: v1_aug
-
-training_method: full
+mode: coconut_baseline
 train_or_eval: eval

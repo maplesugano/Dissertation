@@ -1,0 +1,389 @@
+(.venv) maplesugano@maplesugano:~/proj/Dissertation/Coconut$ torchrun --nnodes 1 --nproc_per_node 1 run.py args/emo_coconut_eval.yaml
+Config: {'project': 'coconut', 'save_path': './ckpts', 'name': 'emo-coconut-eval', 'only_eval': True, 'coconut': True, 'cot': False, 'no_thoughts': False, 'no_cot': False, 'c_thought': 2, 'epochs_per_stage': 3, 'max_latent_stage': 5, 'pad_latent_to_max': True, 'save_only_improve': False, 'uniform_prob': 0.0, 'model_id': './pretrained/gpt2', 'load_model_path': './ckpts/emo-coconut/checkpoint_25', 'seed': 0, 'resume': 20, 'bf16': False, 'train_path': 'data/emotion_train.json', 'val_path': 'data/emotion_test.json', 'reset_optimizer': True, 'batch_size_training': 32, 'debug': False, 'gradient_accumulation_steps': 1, 'num_epochs': 25, 'lr': 0.0001, 'weight_decay': 0.01, 'mode': 'coconut_baseline', 'train_or_eval': 'eval'}
+Loading from ./ckpts/emo-coconut/checkpoint_25 and skip the first 20 epochs
+/home/maplesugano/proj/Dissertation/Coconut/run.py:136: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  saved_weights = torch.load(
+The new embeddings will be initialized from a multivariate normal distribution that has old embeddings' mean and covariance. As described in this article: https://nlp.stanford.edu/~johnhew/vocab-expansion.html. To disable this, use `mean_resizing=False`
+<All keys matched successfully>
+Running FSDP on rank = 0, world size = 1
+DistributedDataParallel(
+  (module): Coconut(
+    (base_causallm): GPT2LMHeadModel(
+      (transformer): GPT2Model(
+        (wte): Embedding(50260, 768)
+        (wpe): Embedding(1024, 768)
+        (drop): Dropout(p=0.1, inplace=False)
+        (h): ModuleList(
+          (0-11): 12 x GPT2Block(
+            (ln_1): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+            (attn): GPT2SdpaAttention(
+              (c_attn): Conv1D(nf=2304, nx=768)
+              (c_proj): Conv1D(nf=768, nx=768)
+              (attn_dropout): Dropout(p=0.1, inplace=False)
+              (resid_dropout): Dropout(p=0.1, inplace=False)
+            )
+            (ln_2): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+            (mlp): GPT2MLP(
+              (c_fc): Conv1D(nf=3072, nx=768)
+              (c_proj): Conv1D(nf=768, nx=3072)
+              (act): NewGELUActivation()
+              (dropout): Dropout(p=0.1, inplace=False)
+            )
+          )
+        )
+        (ln_f): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+      )
+      (lm_head): Linear(in_features=768, out_features=50260, bias=False)
+    )
+    (embedding): Embedding(50260, 768)
+  )
+)
+base_causallm.transformer.wte.weight
+base_causallm.transformer.wte.weight requires gradient
+base_causallm.transformer.wpe.weight
+base_causallm.transformer.wpe.weight requires gradient
+base_causallm.transformer.h.0.ln_1.weight
+base_causallm.transformer.h.0.ln_1.weight requires gradient
+base_causallm.transformer.h.0.ln_1.bias
+base_causallm.transformer.h.0.ln_1.bias requires gradient
+base_causallm.transformer.h.0.attn.c_attn.weight
+base_causallm.transformer.h.0.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.0.attn.c_attn.bias
+base_causallm.transformer.h.0.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.0.attn.c_proj.weight
+base_causallm.transformer.h.0.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.0.attn.c_proj.bias
+base_causallm.transformer.h.0.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.0.ln_2.weight
+base_causallm.transformer.h.0.ln_2.weight requires gradient
+base_causallm.transformer.h.0.ln_2.bias
+base_causallm.transformer.h.0.ln_2.bias requires gradient
+base_causallm.transformer.h.0.mlp.c_fc.weight
+base_causallm.transformer.h.0.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.0.mlp.c_fc.bias
+base_causallm.transformer.h.0.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.0.mlp.c_proj.weight
+base_causallm.transformer.h.0.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.0.mlp.c_proj.bias
+base_causallm.transformer.h.0.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.1.ln_1.weight
+base_causallm.transformer.h.1.ln_1.weight requires gradient
+base_causallm.transformer.h.1.ln_1.bias
+base_causallm.transformer.h.1.ln_1.bias requires gradient
+base_causallm.transformer.h.1.attn.c_attn.weight
+base_causallm.transformer.h.1.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.1.attn.c_attn.bias
+base_causallm.transformer.h.1.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.1.attn.c_proj.weight
+base_causallm.transformer.h.1.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.1.attn.c_proj.bias
+base_causallm.transformer.h.1.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.1.ln_2.weight
+base_causallm.transformer.h.1.ln_2.weight requires gradient
+base_causallm.transformer.h.1.ln_2.bias
+base_causallm.transformer.h.1.ln_2.bias requires gradient
+base_causallm.transformer.h.1.mlp.c_fc.weight
+base_causallm.transformer.h.1.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.1.mlp.c_fc.bias
+base_causallm.transformer.h.1.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.1.mlp.c_proj.weight
+base_causallm.transformer.h.1.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.1.mlp.c_proj.bias
+base_causallm.transformer.h.1.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.2.ln_1.weight
+base_causallm.transformer.h.2.ln_1.weight requires gradient
+base_causallm.transformer.h.2.ln_1.bias
+base_causallm.transformer.h.2.ln_1.bias requires gradient
+base_causallm.transformer.h.2.attn.c_attn.weight
+base_causallm.transformer.h.2.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.2.attn.c_attn.bias
+base_causallm.transformer.h.2.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.2.attn.c_proj.weight
+base_causallm.transformer.h.2.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.2.attn.c_proj.bias
+base_causallm.transformer.h.2.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.2.ln_2.weight
+base_causallm.transformer.h.2.ln_2.weight requires gradient
+base_causallm.transformer.h.2.ln_2.bias
+base_causallm.transformer.h.2.ln_2.bias requires gradient
+base_causallm.transformer.h.2.mlp.c_fc.weight
+base_causallm.transformer.h.2.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.2.mlp.c_fc.bias
+base_causallm.transformer.h.2.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.2.mlp.c_proj.weight
+base_causallm.transformer.h.2.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.2.mlp.c_proj.bias
+base_causallm.transformer.h.2.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.3.ln_1.weight
+base_causallm.transformer.h.3.ln_1.weight requires gradient
+base_causallm.transformer.h.3.ln_1.bias
+base_causallm.transformer.h.3.ln_1.bias requires gradient
+base_causallm.transformer.h.3.attn.c_attn.weight
+base_causallm.transformer.h.3.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.3.attn.c_attn.bias
+base_causallm.transformer.h.3.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.3.attn.c_proj.weight
+base_causallm.transformer.h.3.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.3.attn.c_proj.bias
+base_causallm.transformer.h.3.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.3.ln_2.weight
+base_causallm.transformer.h.3.ln_2.weight requires gradient
+base_causallm.transformer.h.3.ln_2.bias
+base_causallm.transformer.h.3.ln_2.bias requires gradient
+base_causallm.transformer.h.3.mlp.c_fc.weight
+base_causallm.transformer.h.3.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.3.mlp.c_fc.bias
+base_causallm.transformer.h.3.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.3.mlp.c_proj.weight
+base_causallm.transformer.h.3.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.3.mlp.c_proj.bias
+base_causallm.transformer.h.3.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.4.ln_1.weight
+base_causallm.transformer.h.4.ln_1.weight requires gradient
+base_causallm.transformer.h.4.ln_1.bias
+base_causallm.transformer.h.4.ln_1.bias requires gradient
+base_causallm.transformer.h.4.attn.c_attn.weight
+base_causallm.transformer.h.4.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.4.attn.c_attn.bias
+base_causallm.transformer.h.4.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.4.attn.c_proj.weight
+base_causallm.transformer.h.4.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.4.attn.c_proj.bias
+base_causallm.transformer.h.4.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.4.ln_2.weight
+base_causallm.transformer.h.4.ln_2.weight requires gradient
+base_causallm.transformer.h.4.ln_2.bias
+base_causallm.transformer.h.4.ln_2.bias requires gradient
+base_causallm.transformer.h.4.mlp.c_fc.weight
+base_causallm.transformer.h.4.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.4.mlp.c_fc.bias
+base_causallm.transformer.h.4.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.4.mlp.c_proj.weight
+base_causallm.transformer.h.4.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.4.mlp.c_proj.bias
+base_causallm.transformer.h.4.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.5.ln_1.weight
+base_causallm.transformer.h.5.ln_1.weight requires gradient
+base_causallm.transformer.h.5.ln_1.bias
+base_causallm.transformer.h.5.ln_1.bias requires gradient
+base_causallm.transformer.h.5.attn.c_attn.weight
+base_causallm.transformer.h.5.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.5.attn.c_attn.bias
+base_causallm.transformer.h.5.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.5.attn.c_proj.weight
+base_causallm.transformer.h.5.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.5.attn.c_proj.bias
+base_causallm.transformer.h.5.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.5.ln_2.weight
+base_causallm.transformer.h.5.ln_2.weight requires gradient
+base_causallm.transformer.h.5.ln_2.bias
+base_causallm.transformer.h.5.ln_2.bias requires gradient
+base_causallm.transformer.h.5.mlp.c_fc.weight
+base_causallm.transformer.h.5.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.5.mlp.c_fc.bias
+base_causallm.transformer.h.5.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.5.mlp.c_proj.weight
+base_causallm.transformer.h.5.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.5.mlp.c_proj.bias
+base_causallm.transformer.h.5.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.6.ln_1.weight
+base_causallm.transformer.h.6.ln_1.weight requires gradient
+base_causallm.transformer.h.6.ln_1.bias
+base_causallm.transformer.h.6.ln_1.bias requires gradient
+base_causallm.transformer.h.6.attn.c_attn.weight
+base_causallm.transformer.h.6.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.6.attn.c_attn.bias
+base_causallm.transformer.h.6.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.6.attn.c_proj.weight
+base_causallm.transformer.h.6.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.6.attn.c_proj.bias
+base_causallm.transformer.h.6.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.6.ln_2.weight
+base_causallm.transformer.h.6.ln_2.weight requires gradient
+base_causallm.transformer.h.6.ln_2.bias
+base_causallm.transformer.h.6.ln_2.bias requires gradient
+base_causallm.transformer.h.6.mlp.c_fc.weight
+base_causallm.transformer.h.6.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.6.mlp.c_fc.bias
+base_causallm.transformer.h.6.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.6.mlp.c_proj.weight
+base_causallm.transformer.h.6.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.6.mlp.c_proj.bias
+base_causallm.transformer.h.6.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.7.ln_1.weight
+base_causallm.transformer.h.7.ln_1.weight requires gradient
+base_causallm.transformer.h.7.ln_1.bias
+base_causallm.transformer.h.7.ln_1.bias requires gradient
+base_causallm.transformer.h.7.attn.c_attn.weight
+base_causallm.transformer.h.7.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.7.attn.c_attn.bias
+base_causallm.transformer.h.7.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.7.attn.c_proj.weight
+base_causallm.transformer.h.7.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.7.attn.c_proj.bias
+base_causallm.transformer.h.7.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.7.ln_2.weight
+base_causallm.transformer.h.7.ln_2.weight requires gradient
+base_causallm.transformer.h.7.ln_2.bias
+base_causallm.transformer.h.7.ln_2.bias requires gradient
+base_causallm.transformer.h.7.mlp.c_fc.weight
+base_causallm.transformer.h.7.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.7.mlp.c_fc.bias
+base_causallm.transformer.h.7.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.7.mlp.c_proj.weight
+base_causallm.transformer.h.7.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.7.mlp.c_proj.bias
+base_causallm.transformer.h.7.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.8.ln_1.weight
+base_causallm.transformer.h.8.ln_1.weight requires gradient
+base_causallm.transformer.h.8.ln_1.bias
+base_causallm.transformer.h.8.ln_1.bias requires gradient
+base_causallm.transformer.h.8.attn.c_attn.weight
+base_causallm.transformer.h.8.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.8.attn.c_attn.bias
+base_causallm.transformer.h.8.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.8.attn.c_proj.weight
+base_causallm.transformer.h.8.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.8.attn.c_proj.bias
+base_causallm.transformer.h.8.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.8.ln_2.weight
+base_causallm.transformer.h.8.ln_2.weight requires gradient
+base_causallm.transformer.h.8.ln_2.bias
+base_causallm.transformer.h.8.ln_2.bias requires gradient
+base_causallm.transformer.h.8.mlp.c_fc.weight
+base_causallm.transformer.h.8.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.8.mlp.c_fc.bias
+base_causallm.transformer.h.8.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.8.mlp.c_proj.weight
+base_causallm.transformer.h.8.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.8.mlp.c_proj.bias
+base_causallm.transformer.h.8.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.9.ln_1.weight
+base_causallm.transformer.h.9.ln_1.weight requires gradient
+base_causallm.transformer.h.9.ln_1.bias
+base_causallm.transformer.h.9.ln_1.bias requires gradient
+base_causallm.transformer.h.9.attn.c_attn.weight
+base_causallm.transformer.h.9.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.9.attn.c_attn.bias
+base_causallm.transformer.h.9.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.9.attn.c_proj.weight
+base_causallm.transformer.h.9.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.9.attn.c_proj.bias
+base_causallm.transformer.h.9.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.9.ln_2.weight
+base_causallm.transformer.h.9.ln_2.weight requires gradient
+base_causallm.transformer.h.9.ln_2.bias
+base_causallm.transformer.h.9.ln_2.bias requires gradient
+base_causallm.transformer.h.9.mlp.c_fc.weight
+base_causallm.transformer.h.9.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.9.mlp.c_fc.bias
+base_causallm.transformer.h.9.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.9.mlp.c_proj.weight
+base_causallm.transformer.h.9.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.9.mlp.c_proj.bias
+base_causallm.transformer.h.9.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.10.ln_1.weight
+base_causallm.transformer.h.10.ln_1.weight requires gradient
+base_causallm.transformer.h.10.ln_1.bias
+base_causallm.transformer.h.10.ln_1.bias requires gradient
+base_causallm.transformer.h.10.attn.c_attn.weight
+base_causallm.transformer.h.10.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.10.attn.c_attn.bias
+base_causallm.transformer.h.10.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.10.attn.c_proj.weight
+base_causallm.transformer.h.10.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.10.attn.c_proj.bias
+base_causallm.transformer.h.10.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.10.ln_2.weight
+base_causallm.transformer.h.10.ln_2.weight requires gradient
+base_causallm.transformer.h.10.ln_2.bias
+base_causallm.transformer.h.10.ln_2.bias requires gradient
+base_causallm.transformer.h.10.mlp.c_fc.weight
+base_causallm.transformer.h.10.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.10.mlp.c_fc.bias
+base_causallm.transformer.h.10.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.10.mlp.c_proj.weight
+base_causallm.transformer.h.10.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.10.mlp.c_proj.bias
+base_causallm.transformer.h.10.mlp.c_proj.bias requires gradient
+base_causallm.transformer.h.11.ln_1.weight
+base_causallm.transformer.h.11.ln_1.weight requires gradient
+base_causallm.transformer.h.11.ln_1.bias
+base_causallm.transformer.h.11.ln_1.bias requires gradient
+base_causallm.transformer.h.11.attn.c_attn.weight
+base_causallm.transformer.h.11.attn.c_attn.weight requires gradient
+base_causallm.transformer.h.11.attn.c_attn.bias
+base_causallm.transformer.h.11.attn.c_attn.bias requires gradient
+base_causallm.transformer.h.11.attn.c_proj.weight
+base_causallm.transformer.h.11.attn.c_proj.weight requires gradient
+base_causallm.transformer.h.11.attn.c_proj.bias
+base_causallm.transformer.h.11.attn.c_proj.bias requires gradient
+base_causallm.transformer.h.11.ln_2.weight
+base_causallm.transformer.h.11.ln_2.weight requires gradient
+base_causallm.transformer.h.11.ln_2.bias
+base_causallm.transformer.h.11.ln_2.bias requires gradient
+base_causallm.transformer.h.11.mlp.c_fc.weight
+base_causallm.transformer.h.11.mlp.c_fc.weight requires gradient
+base_causallm.transformer.h.11.mlp.c_fc.bias
+base_causallm.transformer.h.11.mlp.c_fc.bias requires gradient
+base_causallm.transformer.h.11.mlp.c_proj.weight
+base_causallm.transformer.h.11.mlp.c_proj.weight requires gradient
+base_causallm.transformer.h.11.mlp.c_proj.bias
+base_causallm.transformer.h.11.mlp.c_proj.bias requires gradient
+base_causallm.transformer.ln_f.weight
+base_causallm.transformer.ln_f.weight requires gradient
+base_causallm.transformer.ln_f.bias
+base_causallm.transformer.ln_f.bias requires gradient
+Map (num_proc=32): 100%|███████████████████████████████████████████████████████████████████| 861/861 [00:00<00:00, 928.55 examples/s]
+Map: 100%|███████████████████████████████████████████████████████████████████████████████| 861/861 [00:00<00:00, 27124.66 examples/s]
+Test Accuracy:   0%|                                                                                         | 0/861 [00:00<?, ?it/s]Question 0: Answer = 'V=2.80 A=3.10 D=2.80' CoT = 'The phrase 'If I wasn't working here' implies dissatisfaction or regret, contributing to a slightly negative valence score.
+The use of 'if' suggests a hypothetical situation that can evoke contemplation, leading to a moderate arousal score.
+The conditional nature of the statement indicates a lack of control over the situation, resulting in a lower dominance score.'
+Full output: 'If I wasn't working here.
+<|start-latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|end-latent|>### V=2.44 A=2.89 D=3.00'
+Extracted Output: 'V=2.44 A=2.89 D=3.00'
+Test accuracy: 0.0:   0%|                                                                            | 1/861 [00:00<04:39,  3.08it/s]Question 1: Answer = 'V=3.27 A=3.36 D=3.36' CoT = 'The phrase 'more than a job' suggests a positive outlook on work, contributing to a slightly positive valence score.
+The use of 'I've got' conveys enthusiasm and engagement, leading to a moderately high arousal score.
+The statement implies a sense of control and fulfillment in one's professional life, resulting in a balanced dominance score.'
+Full output: 'I've got more than a job; I've got a career.
+<|start-latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|end-latent|>### V=3.44 A=3.00 D=3.44'
+Extracted Output: 'V=3.44 A=3.00 D=3.44'
+Test accuracy: 0.0:   0%|▏                                                                           | 2/861 [00:00<03:06,  4.59it/s]Question 2: Answer = 'V=2.86 A=3.29 D=3.29' CoT = 'The phrase 'no time to waste' conveys a sense of urgency and negativity, leading to a slightly negative valence score.
+The urgency implied by 'no time to waste' generates a heightened emotional response, resulting in a moderately high arousal score.
+The statement implies a sense of control over time management, contributing to a higher dominance score as it reflects assertiveness.'
+Full output: 'He has no time to waste.
+<|start-latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|end-latent|>### V=3.00 A=3.20 D=3.40'
+Extracted Output: 'V=3.00 A=3.20 D=3.40'
+Test accuracy: 0.0:   0%|▎                                                                           | 3/861 [00:00<02:33,  5.58it/s]Question 3: Answer = 'V=3.40 A=3.10 D=3.40' CoT = 'The phrase 'with the help of friends like you' conveys positivity and appreciation, contributing to a slightly positive valence score of 3.40.
+The use of 'adapt our services' suggests a proactive approach, creating a moderate level of engagement and interest, reflected in the arousal score of 3.10.
+The mention of 'Goodwill' and 'changing society' implies a sense of agency and control in addressing needs, resulting in a dominance score of 3.40.'
+Full output: 'With the help of friends like you, Goodwill has continued to adapt our services to meet the human needs of our changing society.
+<|start-latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|end-latent|>### V=3.30 A=2.90 D=3.10'
+Extracted Output: 'V=3.30 A=2.90 D=3.10'
+Test accuracy: 0.0:   0%|▎                                                                           | 4/861 [00:00<02:22,  6.03it/s]Question 4: Answer = 'V=3.40 A=2.90 D=3.00' CoT = 'The phrase 'real solutions' conveys a positive outcome, contributing to a slightly positive valence score of 3.40.
+The sentence's calm and supportive tone results in a moderate arousal score of 2.90, indicating a low level of excitement.
+The use of 'your support' implies a sense of empowerment and control, leading to a neutral dominance score of 3.00.'
+Full output: 'Your support helps provide real solutions.
+<|start-latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|latent|><|end-latent|>### V=3.44 A=3.33 D=3.44'
+Extracted Output: 'V=3.44 A=3.33 D=3.44'
+Test accuracy: 0.01: 100%|█████████████████████████████████████████████████████████████████████████| 861/861 [01:56<00:00,  7.39it/s]
+Device 0: Cor=6, CoT=0, Total=861
+Accuracy on validation set: 6 / 861 = 0.006968641114982578
+CoT match on validation set: 0 / 861 = 0.0
+MAE on validation set: 0.1747
+  V-MAE: 0.1804  A-MAE: 0.1863  D-MAE: 0.1576
+RMSE on validation set: 0.2370
+Tolerance accuracy (all dims <=0.25): 411 / 861 = 0.4774
+Pearson r (V): 0.6841
+Pearson r (A): 0.3417
+Pearson r (D): 0.3363
+
+
+---
+
+The Key Finding: V >> A/D
+The Pearson gap is the most important observation. The model has learned valence (positive/negative sentiment is strongly lexically encoded), but arousal and dominance are barely above chance. On the sample outputs you can see it clearly — predictions like V=3.44 A=3.33 D=3.44 for multiple different sentences suggest the model is regressing toward a near-mean cluster for A and D rather than truly predicting them.
+
+This is actually the perfect motivation for SIM-CoT: the 3 reasoning steps are explicitly structured as V-step → A-step → D-step. SIM-CoT's auxiliary decoder supervises each latent with its corresponding dimension's step, which should force the latent tokens to encode A-specific and D-specific semantics rather than collapsing into a shared representation dominated by valence.
+
+Expected SIM-CoT improvement target: bring A and D Pearson from 0.34 up toward the V level (0.68), which would align with the paper's reported +4–8% gains on GSM8k.

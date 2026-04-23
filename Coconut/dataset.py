@@ -25,8 +25,15 @@ def get_dataset(path, tokenizer, max_size=1000000000):
             tokenizer.encode(s + "\n", add_special_tokens=False)
             for s in sample["steps"]
         ]
+        # answer may be a plain string (e.g. GSM8K) or a PAD dict
+        # {"V": float, "A": float, "D": float} (emotion dataset).
+        answer = sample["answer"]
+        if isinstance(answer, dict):
+            answer_str = "V={V:.2f} A={A:.2f} D={D:.2f}".format(**answer)
+        else:
+            answer_str = str(answer)
         answer_tokenized = tokenizer.encode(
-            "### " + sample["answer"], add_special_tokens=False
+            "### " + answer_str, add_special_tokens=False
         ) + [tokenizer.eos_token_id]
 
         sample = {
@@ -62,7 +69,10 @@ def get_dataset(path, tokenizer, max_size=1000000000):
 
     # verify
     d = data[0]
-    complete = d["question"] + "\n" + "\n".join(d["steps"]) + "\n### " + d["answer"]
+    _ans = d["answer"]
+    _ans_str = ("V={V:.2f} A={A:.2f} D={D:.2f}".format(**_ans)
+                if isinstance(_ans, dict) else str(_ans))
+    complete = d["question"] + "\n" + "\n".join(d["steps"]) + "\n### " + _ans_str
     complete_tokenized = tokenizer.encode(complete, add_special_tokens=True) + [
         tokenizer.eos_token_id
     ]
@@ -374,7 +384,7 @@ def get_question_latent_dataset(
         }
 
     return base_dataset_valid.map(
-        process_dataset, remove_columns=list(base_dataset_valid.features), num_proc=32
+        process_dataset, remove_columns=list(base_dataset_valid.features), num_proc=None
     )
 
 
@@ -455,7 +465,7 @@ def get_cot_latent_dataset(
     if torch.cuda.device_count() > 1:
         if dist.get_rank() == 0:
             processed_dataset = base_dataset.map(
-                process_dataset, remove_columns=list(base_dataset.features), num_proc=32
+                process_dataset, remove_columns=list(base_dataset.features), num_proc=None
             )
             if shuffle:
                 processed_dataset = processed_dataset.shuffle()
@@ -467,7 +477,7 @@ def get_cot_latent_dataset(
 
     else:
         processed_dataset = base_dataset.map(
-            process_dataset, remove_columns=list(base_dataset.features), num_proc=32
+            process_dataset, remove_columns=list(base_dataset.features), num_proc=None
         )
         if shuffle:
             processed_dataset = processed_dataset.shuffle()
@@ -602,7 +612,7 @@ def get_cot_with_explainable_latent_dataset(
     if torch.cuda.device_count() > 1:
         if dist.get_rank() == 0:
             processed_dataset = base_dataset.map(
-                process_dataset, remove_columns=list(base_dataset.features), num_proc=32
+                process_dataset, remove_columns=list(base_dataset.features), num_proc=None
             )
             if shuffle:
                 processed_dataset = processed_dataset.shuffle()
@@ -614,7 +624,7 @@ def get_cot_with_explainable_latent_dataset(
 
     else:
         processed_dataset = base_dataset.map(
-            process_dataset, remove_columns=list(base_dataset.features), num_proc=32
+            process_dataset, remove_columns=list(base_dataset.features), num_proc=None
         )
         if shuffle:
             processed_dataset = processed_dataset.shuffle()

@@ -3,7 +3,7 @@
 
 project: coconut
 save_path: ./ckpts
-name: gsm-coconut
+name: emo-coconut
 
 only_eval: False
 
@@ -24,16 +24,16 @@ uniform_prob: 0.0
 
 # Model and checkpoint paths (use relative paths or env variables)
 model_id: ./pretrained/gpt2
-load_model_path: ./ckpts/gsm_cot/checkpoint_20
+load_model_path: "None"
 
 wandb: False
 seed: 0
-resume: 3
+resume: 0
 bf16: False
 
 # for debug
-train_path: ./data/gsm_train.json
-val_path: ./data/gsm_test.json
+train_path: ./data/emotion_train.json
+val_path: ./data/emotion_test.json
 
 reset_optimizer: True
 batch_size_training: 8

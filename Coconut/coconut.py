@@ -779,7 +779,7 @@ class CoconutGPT_Same_Word_Embedding(nn.Module):
                         loss_explain /= effective_token_count
                         loss_explain_all += loss_explain
                         
-        if 'explainable_ids_list' in kwargs:
+        if 'explainable_ids_list' in kwargs and c_thought_num > 0:
             if loss is None:
                 loss = 0.0
             loss += 1.0 * loss_explain_all / c_thought_num

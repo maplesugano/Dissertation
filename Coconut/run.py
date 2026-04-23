@@ -57,7 +57,7 @@ def main():
     args = parser.parse_args()
 
     # init distributed environment
-    dist.init_process_group("nccl")
+    dist.init_process_group("gloo")
     local_rank = int(os.environ["LOCAL_RANK"])
     rank = int(os.environ["RANK"])
     world_size = int(os.environ["WORLD_SIZE"])
@@ -222,8 +222,12 @@ def main():
 
     # prepare the ground truth answer and cot for evaluation
     question_val = [d["question"] for d in json.load(open(configs.val_path))]
+    def _format_answer(a):
+        if isinstance(a, dict):
+            return "V={V:.2f} A={A:.2f} D={D:.2f}".format(**a)
+        return str(a).replace(",", "").strip()
     answers_val = [
-        d["answer"].replace(",", "").strip() for d in json.load(open(configs.val_path))
+        _format_answer(d["answer"]) for d in json.load(open(configs.val_path))
     ]
     cot_val = ["\n".join(d["steps"]) for d in json.load(open(configs.val_path))]
 
@@ -264,7 +268,10 @@ def main():
     best_acc = 0
 
     # collator = MyCollator(tokenizer, latent_id=latent_id, label_pad_token_id=-100)
-    collator = MyCollator(tokenizer, latent_id=latent_id, label_pad_token_id=-100)
+    if configs.mode == 'coconutgpt_same_word_embedding':
+        collator = MyExplainableCollator(tokenizer, latent_id=latent_id, label_pad_token_id=-100)
+    else:
+        collator = MyCollator(tokenizer, latent_id=latent_id, label_pad_token_id=-100)
 
     for epoch in range(configs.resume, configs.num_epochs):
 
@@ -292,16 +299,28 @@ def main():
 
         if not configs.only_eval:
 
-            dataset_train = get_cot_latent_dataset(
-                scheduled_stage,
-                base_dataset_train,
-                configs,
-                start_id,
-                latent_id,
-                end_id,
-                no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts,
-                shuffle=True,
-            )
+            if configs.mode == 'coconutgpt_same_word_embedding':
+                dataset_train = get_cot_with_explainable_latent_dataset(
+                    scheduled_stage,
+                    base_dataset_train,
+                    configs,
+                    start_id,
+                    latent_id,
+                    end_id,
+                    no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts,
+                    shuffle=True,
+                )
+            else:
+                dataset_train = get_cot_latent_dataset(
+                    scheduled_stage,
+                    base_dataset_train,
+                    configs,
+                    start_id,
+                    latent_id,
+                    end_id,
+                    no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts,
+                    shuffle=True,
+                )
 
             train_dataloader = torch.utils.data.DataLoader(
                 dataset_train,
@@ -466,11 +485,20 @@ def main():
         pbar = tqdm(
             colour="blue", desc=f"Test Accuracy", total=total_length, dynamic_ncols=True
         )
+        is_emotion = "gsm" not in configs.val_path
         cor, cor_cot, total = (
             torch.tensor(0, device=local_rank),
             torch.tensor(0, device=local_rank),
             torch.tensor(0, device=local_rank),
         )
+        mae_sum = torch.tensor(0.0, device=local_rank)
+        v_mae_sum = torch.tensor(0.0, device=local_rank)
+        a_mae_sum = torch.tensor(0.0, device=local_rank)
+        d_mae_sum = torch.tensor(0.0, device=local_rank)
+        mse_sum = torch.tensor(0.0, device=local_rank)
+        tol_cor = torch.tensor(0, device=local_rank)
+        # pearson_accum[0:3]=sum_pred, [3:6]=sum_true, [6:9]=sum_prod, [9:12]=sum_sq_pred, [12:15]=sum_sq_true  (V,A,D)
+        pearson_accum = torch.zeros(15, device=local_rank)
         if hasattr(configs, "train_or_eval") and configs.train_or_eval == 'eval':
             with torch.no_grad():
                 parallel_model.module.eval()
@@ -514,6 +542,32 @@ def main():
                     cor += answer_output == answer
                     cor_cot += cot_output == answer_cot
 
+                    if is_emotion:
+                        try:
+                            def _parse_vad(s):
+                                parts = {kv.split("=")[0]: float(kv.split("=")[1])
+                                         for kv in s.split() if "=" in kv}
+                                return [parts[k] for k in ("V", "A", "D")]
+                            pred_vad = _parse_vad(answer_output)
+                            true_vad = _parse_vad(answer)
+                            diffs = [abs(p - t) for p, t in zip(pred_vad, true_vad)]
+                            sample_mae = sum(diffs) / 3.0
+                            mae_sum += sample_mae
+                            v_mae_sum += diffs[0]
+                            a_mae_sum += diffs[1]
+                            d_mae_sum += diffs[2]
+                            mse_sum += sum((p - t) ** 2 for p, t in zip(pred_vad, true_vad)) / 3.0
+                            if all(d <= 0.25 for d in diffs):
+                                tol_cor += 1
+                            for i, (p, t) in enumerate(zip(pred_vad, true_vad)):
+                                pearson_accum[i] += p
+                                pearson_accum[3 + i] += t
+                                pearson_accum[6 + i] += p * t
+                                pearson_accum[9 + i] += p * p
+                                pearson_accum[12 + i] += t * t
+                        except Exception:
+                            pass
+
                     pbar.update(1)
                     pbar.set_description(
                         f"Test accuracy: {round(float(cor.detach().float() / total.detach().float()), 2)}"
@@ -525,6 +579,14 @@ def main():
             dist.all_reduce(cor_cot, op=dist.ReduceOp.SUM)
             dist.all_reduce(cor, op=dist.ReduceOp.SUM)
             dist.all_reduce(total, op=dist.ReduceOp.SUM)
+            if is_emotion:
+                dist.all_reduce(mae_sum, op=dist.ReduceOp.SUM)
+                dist.all_reduce(v_mae_sum, op=dist.ReduceOp.SUM)
+                dist.all_reduce(a_mae_sum, op=dist.ReduceOp.SUM)
+                dist.all_reduce(d_mae_sum, op=dist.ReduceOp.SUM)
+                dist.all_reduce(mse_sum, op=dist.ReduceOp.SUM)
+                dist.all_reduce(tol_cor, op=dist.ReduceOp.SUM)
+                dist.all_reduce(pearson_accum, op=dist.ReduceOp.SUM)
 
             cor_cot = cor_cot.item()
             cor = cor.item()
@@ -532,10 +594,41 @@ def main():
             if rank == 0:
                 print(f"Accuracy on validation set: {cor} / {total} = {cor/total}")
                 print(f"CoT match on validation set: {cor_cot} / {total} = {cor_cot/total}")
+                if is_emotion:
+                    n = total
+                    v_mae = v_mae_sum.item() / n
+                    a_mae = a_mae_sum.item() / n
+                    d_mae = d_mae_sum.item() / n
+                    rmse = (mse_sum.item() / n) ** 0.5
+                    tol_acc = tol_cor.item() / n
+                    print(f"MAE on validation set: {mae_sum.item() / n:.4f}")
+                    print(f"  V-MAE: {v_mae:.4f}  A-MAE: {a_mae:.4f}  D-MAE: {d_mae:.4f}")
+                    print(f"RMSE on validation set: {rmse:.4f}")
+                    print(f"Tolerance accuracy (all dims <=0.25): {tol_cor.item():.0f} / {n} = {tol_acc:.4f}")
+                    pa = pearson_accum
+                    for i, dim in enumerate(("V", "A", "D")):
+                        sum_p = pa[i].item()
+                        sum_t = pa[3 + i].item()
+                        sum_pt = pa[6 + i].item()
+                        sum_p2 = pa[9 + i].item()
+                        sum_t2 = pa[12 + i].item()
+                        num = n * sum_pt - sum_p * sum_t
+                        den = ((n * sum_p2 - sum_p ** 2) * (n * sum_t2 - sum_t ** 2)) ** 0.5
+                        r = num / den if den > 0 else float('nan')
+                        print(f"Pearson r ({dim}): {r:.4f}")
             sys.stdout.flush()
 
+            log_dict = {"eval/acc": cor / total, "eval/cot_em": cor_cot / total}
+            if is_emotion:
+                n = total
+                log_dict["eval/mae"] = mae_sum.item() / n
+                log_dict["eval/v_mae"] = v_mae_sum.item() / n
+                log_dict["eval/a_mae"] = a_mae_sum.item() / n
+                log_dict["eval/d_mae"] = d_mae_sum.item() / n
+                log_dict["eval/rmse"] = (mse_sum.item() / n) ** 0.5
+                log_dict["eval/tol_acc"] = tol_cor.item() / n
             if wandb_run:
-                wandb_run.log({"eval/acc": cor / total, "eval/cot_em": cor_cot / total})
+                wandb_run.log(log_dict)
 
             if configs.only_eval:
                 break

@@ -1,0 +1,390 @@
+\documentclass[12pt,twoside]{report}
+
+% some definitions for the title page
+\newcommand{\reporttitle}{The Emotion Engine}
+\newcommand{\reportauthor}{Kaede Sugano}
+\newcommand{\supervisor}{William Knottenbelt}
+\newcommand{\reporttype}{Undergraduate Individual Project}
+\newcommand{\degreetype}{MEng} 
+
+% load some definitions and default packages
+\input{includes}
+
+% load some macros
+\input{notation}
+
+% load title page
+\begin{document}
+\input{titlepage}
+
+
+% page numbering etc.
+\pagenumbering{roman}
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\setcounter{page}{1}
+\pagestyle{fancy}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+Language inevitably compresses and simplifies human emotion, causing subtle affective nuances to be lost in verbal expression. Although large language models (LLMs) can recognise and generate emotional language, most existing methods rely on discrete emotion labels or token-level control, which limits fine-grained and intuitive affective manipulation.
+
+This project proposes an Emotion Engine that represents emotion as a continuous latent vector, rather than explicit linguistic categories. Given an input text, the system extracts its underlying emotional state as a low-dimensional emotion vector, which composes multiple overlapping affective directions. Users can directly adjust intensities of those vectors before regenerating text, that reflects the edited emotional state. Importantly, this operation is performed prior to language generation, bypassing the lossy compression inherent in verbalisation.
+
+By leveraging recent advances in latent-space reasoning and internal activation steering in LLMs, the Emotion Engine enables controllable, pre-verbal emotion editing within a text-to-text pipeline. Human communication is always mediated by media. This project can affect all communication in the sense that it deals with feelings evoked by the media. Recent creative act with LLM prompt engineering may in fact be a role reversal, since creativity should serve before the verbalisation. By making it possible to edit the feelings that were really wanted to be conveyed, this project could bring about a more precise communication that society has never seen before.
+
+\end{abstract}
+
+\cleardoublepage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Acknowledgments}
+Comment this out if not needed.
+
+\clearpage{\pagestyle{empty}\cleardoublepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%--- table of contents
+\fancyhead[RE,LO]{\sffamily {Table of Contents}}
+\tableofcontents 
+
+
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\fancyhead[LE,RO]{\slshape \rightmark}
+\fancyhead[LO,RE]{\slshape \leftmark}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+\section{Words draw boundary lines across the ocean of ``concepts''}
+When I was still in elementary school, my favourite biography in the library was Helen Keller’s. Stricken by illness as a child, she lost both sight and hearing and bore the ``triple hardship'' of being blind, deaf, and mute, yet devoted herself to the advancement of education and welfare for the disadvantaged.
+
+But Helen Keller’s story is not merely a tale of ``overcoming adversity.'' What is etched most vividly in my memory is the moment when she first understood the word ``water.'' At first, Helen insisted that ``cup'' and ``the water in it'' were the same thing. However, the instant when Anne Sullivan signed ``W-A-T-E-R'' into her hand while letting the cold water from a pump run across Helen’s palm, her world changed. When she could separate the object that flows from the container, the continuum of chaos was reshaped into an ordered world with partitions.
+
+This scene exemplifies the essence of language. We do not grasp the external world directly as ``things-in-themselves.'' The information flowing into our senses is, in truth, a continuum; language draws borders there and carves out units of meaning. Even the boundary between river and sea is not sharply inscribed by nature itself; it is defined for human convenience and by culture~-- ``this far is river,'' ``from here is sea.'' Words do not merely copy lines already inscribed upon the world; they are the very act of drawing those lines as needed. In other words, language is not just a label: it is the activity by which we impose boundaries within our cognition and shape the world we see. To learn words is not merely to expand vocabulary; it is to gain a way of partitioning the ocean of concepts and choosing how to look at the world. In that sense, we are, day by day, sketching new boundaries.
+
+\section{Verbalisation is a lossy compression}
+Verbalisation is an act of forcing the complex and continuous sensation into discretised vocabulary and grammar. When we perform \textbf{verbalisation}, there lurks a commonly overlooked risk; it is intrinsically \textbf{lossy}. The moment we verbalise, the fine nuances contained within raw feeling are abstracted into the fences of cognition that humanity has drawn at the level of words. Even if we choose the same term, the warmth that term carries depends on each person’s embodied history, and it is eventually averaged out. The relief or pride we felt when we opened our old school yearbook for the first time in a decade, once put into text, may be flattened into a bland ``how nostalgic.'' Moreover, lexicons and meanings for emotions differ greatly across languages and cultures\cite{jackson2019emotion}; terms like ``anger'' or ``joy'' do not necessarily point to the same nuances around the world. And yet humanity cannot let go of language. Even if it is a lossy compression, language remains the only standardised interface that connects the human heart to society.
+
+
+\section{Objectives}
+The goal of this project is not to deny language but to design a parallel circuit that supplements the components lost in the compression of verbalisation, i.e.\ a circuit for restoring what words leave behind. What if we could scoop up the human central cognition directly, without passing through the rendering pipeline of language, and translate it into other forms of expression? Could we transfer the lingering sensation that arises when reading a letter from your significant other into poetry or essays? Or could we improve novel translations by capturing emotions lost through differences in lexical definitions between languages? Here lies an uncharted gap in our understanding of human cognition. 
+
+This project aims to emulate a kind of human synaesthesia. In other words, we aim to map emotions across modalities. We will develop the foundational technology to extract, manipulate, and re-synthesise a \textbf{pre-verbal, intermediate representation of emotion}, and explore possible ways to steer the model output using those representations of emotion.
+
+The final product of this project is a computational system capable of extracting, manipulating, and presenting the emotions contained in input text without having to go through the compression of verbalisation.
+The system focuses not on what the text superficially tells, but on the emotional state that existed immediately before the text was produced, and treats it as a continuous vector representation.
+
+When a user enters any text, the system analyses the emotional nuances contained in that text and visualises them as a low-dimensional continuous vector. These emotion vectors are not discrete labels such as ``joy'' and ``sadness,'' but are expressed as multiple overlapping emotional directions, thus preserving subtle mixed emotions and fluctuations that cannot be captured by language.
+
+Users can intuitively manipulate this emotion code space. For example, by strengthening only a specific emotional direction and weakening another direction for the simultaneous presence of \texttt{relief} and \texttt{loneliness} in a certain sentence, it is possible to sensitively edit the emotional state that one really wanted to convey. It is important to note that this operation is not performed at the linguistic level, such as vocabulary selection or stylistic adjustment, but rather on the emotional expression itself before the language is generated.
+
+The edited emotion code is again transformed into a linguistic expression. The text generated here is not simply a paraphrased sentence, but is the result of a re-expression that retains or intentionally transforms the emotion contained in the original sentence.
+
+In this process, the user does not need to put their emotions into explicit words. The verbal averaging and simplification that is usually considered inevitable between emotion recognition and generation is bypassed, and the raw emotion felt by the user can be transferred to another form of expression in a more controllable manner.
+
+This end product is neither a system for classifying and diagnosing emotions nor a tool for automatically generating emotional sentences. Rather, it is an interface that temporarily holds the emotions that people had before they put them into words as manipulatable intermediate expressions, from which new linguistic expressions can be launched. The ultimate value of this project lies in the fact that it makes it possible to return to the boundaries drawn by language and choose words again.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Background}
+
+\section{Emotion Representation in LLMs}
+
+\subsection{Discrete Emotion Labels and Their Limitations}
+
+Early work treated emotion as a small set of discrete categories. The most influential taxonomy is Ekman’s seven basic emotions: anger, contempt, disgust, enjoyment, fear, sadness, and surprise~\cite{ekman1999basic}. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{figures/paul_ekman.png}
+    \caption{Paul Ekman's seven basix emotions~\cite{paul_ekman_web}}
+    \label{fig:paul_ekman}
+\end{figure}
+
+This assumes that emotions are biologically universal and psychologically irreducible. This framework enabled early supervised emotion classification systems by providing a clear labeling scheme and facilitated the construction of benchmark datasets. However, the categorical assumption introduces strong inductive bias; emotions are treated as mutually exclusive and qualitatively distinct.
+
+Subsequent datasets attempted to increase expressive granularity. GoEmotions~\cite{demszky2020goemotionsdatasetfinegrainedemotions}, for example, expanded the label space to 27 emotion categories and allowed multi-label annotation. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/goemotions.png}
+    \caption{GoEmotions taxonomy: 28 emotion categories including ``neutral''.~\cite{goemo}}
+    \label{fig:goemotions}
+\end{figure}
+
+This enabled us to capture cases where multiple emotions occur in a single utterance. It is reported that emotions cluster by sentiment polarity and intensity, and that many categories exhibit high inter-label correlation. Nevertheless, despite its increased resolution, the dataset still relies on one-hot / sparse multi-hot encodings. Such encodings collapse emotional intensity and compositional structure into discrete indices, preventing the representation of graded transitions. For example, the difference between mild and intense anger cannot be represented, and the blend of emotions, such as bittersweet emotion, is also difficult.
+
+Essentially, discrete labels force the learning problem into a classification regime that cannot capture continuity, geometry, or arithmetic structure. For example, two samples labeled \texttt{joy} may be emotionally distant, while \texttt{joy} and \texttt{contentment} may be emotionally close; yet this structure is invisible to the model itself. These limitations motivate a shift away from purely categorical representations toward continuous emotion spaces.
+
+This problem of the discretised emotion labels is also raised  by Wang and Zong (2021)~\cite{wang-zong-2021-distributed}. They explicitly formalise this by arguing that one-hot emotion labels ignore latent relationships between emotion categories. They observe that emotion calsses are not orthogonal in human perception, but rather exhibit similarity in a gradation manner. More broadly, discrete labeling schemes prioritises  the annotation convenience over the representational adequacy. While it simplify supervision and evaluation, they impose artificial bounadies that obscure the underlying structure of emotions. This mismatch becomes especially problematic when attempting cross-dataset transfer or cross-cultural comparison, where differences in label granularity cannot be reconciled within a purely categorical framework.
+
+These shortcomings have motivated a growing body of work that seeks to represent emotion in continuous spaces, where distance, direction, and magnitude encode affective relationships. By having a representation methods that preserves intensity, similarity and compositionality, we can enable models to capture nuanced emotional variation beyond rigid class boundaries. This transition from discrete labels to continuous emotion spaces is the focus of the next subsection.
+
+\subsection{From Discrete Labels to Continuous Emotion Spaces}
+
+Continuous emotion representations seek to encode emotion as points in a low-dimensional vector space, where distance, direction, and magnitude correspond to psychological relationships. Early psychological models such as the pleasure–arousal–dominance (PAD) framework~\cite{MehrabianRussell1974} formalised emotion along continuous axes, suggesting that emotions differ quantitatively rather than categorically.
+
+\begin{enumerate}
+    \item \textbf{Pleasure} represents the hedonic quality of an experience, ranging from unpleasant to pleasant. States such as joy, contentment, and satisfaction occupy the positive end of the pleasure axis, whereas sadness, disgust, and despair lie toward the negative end.
+    \item \textbf{Arousal} captures the degree of physiological and cognitive activation associated with an emotional state, ranging from calm or lethargic to excited or agitated. High-arousal states include fear, anger, and excitement, while low-arousal states include relaxation, boredom, or melancholy. 
+    \item \textbf{Dominance} reflects the extent to which an individual feels in control of, or overpowered by, a situation. High-dominance states are associated with feelings of agency, confidence, and control (e.g. pride, anger), whereas low-dominance states correspond to submission, helplessness, or vulnerability (e.g. fear, shame). 
+\end{enumerate}
+
+Together, these three dimensions define a continuous affective space in which canonical emotion categories correspond to regions rather than points. For example, anger and fear are both negatively valenced and highly aroused, but are separable along the dominance axis; sadness and boredom share low arousal and negative valence, but differ in dominance and intensity. This geometric interpretation naturally accounts for graded emotional intensity, mixed emotions, and smooth transitions between affective states~-- phenomena that are difficult to represent with discrete labels.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/pad.png}
+    \caption{Representation of PAD model done with cubes~\cite{pad}}
+    \label{fig:pad}
+\end{figure}
+
+Additionally, in the field of affective computing, an explicit attempt to bridge the gap between discrete labels and continuous emotion representations is presented by Buechel et al.~\cite{buechel2021labelagnosticemotionembeddings}. Rather than committing to a single emotion taxonomy, they propose learning \emph{label-agnostic emotion embeddings} that serve as a shared latent representation across heterogeneous annotation schemes, including polarity, basic emotion categories, and affective dimensions such as valence and arousal.
+
+Crucially, emotion labels in this framework are not treated as targets to be predicted directly, but as projections from a common embedding space. Models are trained to map text into this latent affective space, from which multiple label formats can be recovered via lightweight prediction heads. This design enables the learned emotion information to be transferred to another without retraining the full model. Empirically, Buechel et al.\ show that such embeddings preserve prediction quality while supporting cross-dataset generalisation.
+
+Complementary to this, Wang and Zong (2021)~\cite{wang-zong-2021-distributed} focus on learning continuous representations for \emph{emotion categories themselves}. Instead of representing emotion classes as one-hot vectors, they derive distributed emotion embeddings by averaging soft classifier outputs over all instances of a given emotion category. These representations form an emotion space in which distances reflect empirical similarity between emotions as expressed in text. Their results demonstrate that emotion categories cluster by sentiment polarity and intensity, which captures the emotions more faithfully than the conventional semantic word embedding spaces. 
+
+Both of those approaches we looked at enable emotion to be represented as a continuous, low-dimensional structure where each of them corresponds to a region or a direction in a metric space. This perspective aligns closely with psychological theories such as PAD, while remaining grounded in data-driven learning from natural language.
+
+Importantly, representing emotion in continuous spaces shifts the learning problem away from rigid classification toward geometric representation learning. This not only resolves many of the limitations inherent in discrete labels, but also provides a foundation for analysing how emotional information is encoded in vector representations more generally. In particular, it raises the question of whether emotion occupies identifiable subspaces or linear directions within learned embeddings, a topic explored in the following subsection.
+
+\subsection{Linear Structure of Emotion in Word Embedding Spaces} \label{linear_word_embedding}
+
+An important question here is whether the continuous space for emotion is actually reflected in learned language representations. Interestingly, prior to the emergence of LLMs, static word embeddings already exhibited evidence of latent affective organisation, despite being trained without explicit emotional supervision.
+
+Wu and Jiang~\cite{linear_vector_emo} demonstrate that emotional information in word embeddings such as GloVe~\cite{brochier2019global} is not uniformly distributed across dimensions, but instead concentrated along a small number of linear directions. They train a linear autoregressive model to predict continuous emotional valence on annotated narrative data, and show that only a limited subset of embedding dimensions contributes to emotional valence. Interpreting the learned weights reveals that emotional polarity can be captured by a low-dimensional subspace embedded within the full semantic space.
+
+It is also reported that projecting word embeddings into this learned emotion subspace produces a substantially clearer separation between positive and nefative emotion. This indicates that emotion is linearly recoverable even when embeddings are trained without affective objectives. Namely that, emotional meaning is encoded \textbf{geometrically}, rather than a byproduct of lexical associations.
+
+A particularly significant finding is that this projected emotion space preserves \emph{linear compositional structure}. Vector arithmetic over words that contain emotion yields composite affective states, which is also consistent with psychological theories of emotion composition such as Plutchik’s wheel of emotions~\cite{plutchik1980emotion}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{figures/Plutchik-wheel.png}
+    \caption{Plutchik’s wheel of emotions: basic emotions are arranged radially, with angular proximity indicating similarity and radial intensity indicating emotional strength.}
+    \label{fig:Plutchik}
+\end{figure}
+
+For example, the vector sum of \texttt{joy} and \texttt{trust} aligns closely with \texttt{love}, while remaining distant from affectively opposing states such as \texttt{remorse}. This behaviour cannot be captured by categorical representations, but emerges naturally in a continuous, vector-valued framework.
+
+These results indicate that emotion in word embedding spaces is not only continuous but also approximately linear, admitting meaningful projections, directions, and arithmetic operations. As a result, affective similarity, intensity, and composition can be expressed through simple linear operations rather than discrete class boundaries.
+
+Taken together, these findings provide early evidence that emotion is encoded as structured geometry within learned language representations. This establishes a representational bridge between psychological models of emotion and mathematical embedding paradigms. This also motivates further research into how such linear emotional structure scales and evolves in more expressive representation learning systems.
+
+\section{Manipulation of Latent Representations}
+
+To harness these emotion vectors, researchers have explored techniques for directly manipulating internal representations of models.
+
+\subsection{Neuron-Level Emotion Control}
+
+One line of work focuses on exploiting localised affective representations at the neuron level. For instance, Radford et al.\ (2017)~\cite{radford2017learninggeneratereviewsdiscovering} noted a single ``sentiment neuron'' in a byte-level recurrent language model. It has shown that the activation strongly correlates with review polarity and the manipulation of that sentiment neuron directly controls the generated sentiment. Later work shows that modern LLMs contain clusters of neurons selectively responsive to specific emotions. 
+
+Ablation and masking experiments were done by Lee et al.\ (2025)~\cite{lee-etal-2025-large}, and it demonstrates that removing these neurons can selectively impair recognition of particular emotions. This confirms that they play a functional role rather than being incidental correlates. However, there is still a possibility that the model is redundant. For some emotions, performance remains stable after ablation, suggesting overlapping representations and compensatory mechanisms.
+
+Additionally, low-resource fine-tuning methods such as LoRA (Low-Rank Adaptation)~\cite{hu2021loralowrankadaptationlarge} and prefix-tuning operate at a higher level of abstraction but still manipulate latent activations. By injecting small learned vectors into the model we can induce a consistent emotional tone without full retraining. This shows that affective style is encoded in directions that are easy to steer with low-rank updates.
+
+\subsection{Emergent Emotional Subspaces in Large Language Models}
+
+Large language models substantially extend and generalise the affective structure previously observed in static word embeddings (\ref{linear_word_embedding}). Even though models are trained on massive corpora without any emotional information supervision, LLMs acquire rich contextual representations. These models appear to internalise emotion as a continuous and distributed property of their hidden-state geometry.
+
+Recent work provides strong empirical evidence for this claim. Reichman et al.\ (2025)~\cite{reichman2025emotionsartthouunderstanding} show that emotional information in large decoder-only LLMs is organised within a low-dimensional \textbf{emotional manifold} embedded in the activation. 
+
+They analysed hidden states across layers, demonstrated how affective content aligns with a small number of stable latent directions. Importantly, these directions appeared without any explicit emotion supervision, indicating that affective structure is a natural consequence of large-scale language modelling rather than a task-specific artefact. Moreover, the identified emotional subspace is remarkably consistent across domains and languages, suggesting that LLMs internalise a broadly universal affective geometry.
+
+Crucially, this geometry is not merely descriptive. Reichman et al.~\cite{reichman2025emotionsartthouunderstanding} show that small interventions along these latent directions can alter the model’s emotional interpretation of an input, while preserving its semantic content. This establishes emotional subspaces as functionally meaningful components of the model’s representation space, rather than passive correlates of surface-level sentiment cues. This establishes emotional subspaces to be considered as a functional and meaningful components of the model’s representation space.
+
+Complementary evidence comes from neuron-level analyses too. Lee et al.\ (2025)~\cite{lee-etal-2025-large} identify groups of neurons whose activations selectively track specific basic emotions in large instruction-tuned models. Emotional information is broadly distributed, but certain neurons constantly exhibit disproportionately strong responses to particular affective states. Further ablation experiments revealed that suppressing these neurons can significantly degrade emotion recognition performance for some emotions. This provides a causal evidence that emotional information is actively processed rather than epiphenomenal.
+
+Taken together, these findings suggest that emotion in LLMs is best characterised as an emergent, low-dimensional subspace embedded within high-dimensional contextual representations. Emotional meaning is not localised to single units, nor reducible to discrete labels; instead, it occupies a structured region of stable latent space. This emergent affective geometry provides the representational foundation that enables direct control of emotional behaviour through linear interventions, which we discuss next.
+
+\subsection{Steering Latent States with Linear and Continuous Control Vectors}
+
+If emotional meaning in LLMs is encoded as directions or subspaces within latent representations, a natural consequence is that affective behaviour should be directly controllable by intervening along those directions. This observation has motivated a line of work on \textbf{latent steering}, in which linear and continuous control vectors are applied directly to internal activations during inference.
+
+An early and influential approach is Plug-and-Play Language Models (PPLM)~\cite{dathathri2020plugplaylanguagemodels}, combines a frozen language model with an external attribute model (e.g.\ a sentiment classifier) and performs gradient ascent on the hidden states to increase the likelihood of a desired attribute. Effectively, this method introduces a small \textbf{sentiment vector} into the latent representation, biasing generation toward positive or negative emotion without modifying the model’s weights. Although originally framed as a controllable generation technique, PPLM implicitly relies on the assumption that affective attributes correspond to approximately linear directions in latent space.
+
+More recent work makes this assumption explicit and removes the need for iterative optimisation. Anthropic’s \textbf{Contrastive Activation Addition} (CAA)~\cite{caa} directly intervenes in a model’s internal activations using precomputed \textbf{steering vectors}. These vectors are obtained by collecting large sets of positive and negative examples of a target behaviour or attribute and averaging the differences in their intermediate representations. The resulting vector captures a direction in latent space that causally corresponds to the desired attribute. During inference, adding this vector to the residual stream steers model behaviour in a predictable manner, while leaving the model parameters unchanged.
+
+A key advantage of CAA is its simplicity and interpretability. The intervention is linear, and the strength of the effect can be modulated continuously by scaling the steering vector with a scalar coefficient. Moreover, multiple steering vectors can be combined additively, enabling compositional control over several attributes simultaneously. In contrast to prompt engineering or fine-tuning, such interventions operate directly on the model’s internal state and often yield more precise and robust control, particularly for abstract properties such as sentiment or emotional tone. 
+
+Crucially, steering latent states does not only affect surface-level lexical choices. Injecting affective control vectors at intermediate layers can alter the model’s internal interpretation of emotional context, changing how emotional cues are integrated and propagated through the network. This supports the view that emotion in LLMs functions as a global latent variable, rather than as a property tied to individual tokens or outputs.
+
+As conclusion, latent steering methods such as PPLM and CAA provide strong evidence that emotional subspaces in LLMs are not only emergent and structured, but also causally actionable. Manipulating affective behaviour through simple linear interventions reinforces the interpretation of emotion as a continuous geometric representation space. It further bridges descriptive analyses of emotional geometry with concrete mechanisms for controlling model behaviour.
+
+\subsection{Causal Evidence for Linear Sentiment and Emotion Directions}
+
+The existence of affective directions in representation space can be shown by linear probes or dimension reduction, however, it is still doubtful if they actually play a causal role in model behaviour. Recent work provides strong evidence that emotion directions in LLMs are not only linearly recoverable, but also functionally necessary and sufficient for affective reasoning.
+
+Hollinsworth et al.\ (2024)~\cite{hollinsworth-etal-2024-language} show that sentiment in LLMs is encoded along a single dominant linear direction in contextual embeddings. They perform directional ablations and interventions, demonstrating that removing / suppressing this sentiment direction causes systematic degradation in downstream emotion-sensitive tasks such as emotion classification. Conversely, injecting the same direction into neutral contexts induces predictable shifts in model outputs. This bidirectional manipulation provides an evidence that the emotion direction is actively used by the model rather than being a passive correlate.
+
+Importantly, affective competence in LLMs does not depend on explicit fine-tuning for emotion-related tasks. Broekens et al.\ (2023)~\cite{broekens2023finegrainedaffectiveprocessingcapabilities} demonstrate that off-the-shelf LLMs such as ChatGPT can map text to precise valence–arousal–dominance (VAD) values and detect fine-grained emotional cues using prompting alone. This sugegsts that continuous affective representations are already embedded in the latent space as part of general language understanding. This is a strong evidence that interpretes emotion as a pre-verbal latent variable, rather than a task-specific output format.
+
+At larger scales, evidence further indicates that emotional representations are not flat but hierarchically structured. Zhao et al.\ (2024)~\cite{zhao2025emergencehierarchicalemotionorganization} observe that very large models (more than 405 billion parameters) develop tree-like emotion representations, where basic affective states branch into more specific emotions. Models featuring a more consistent hierarchical affective geometry demonstrate enhanced emotion recognition capabilities and increased persuasive effectiveness in negotiation scenarios. This directly links the internal structure of emotional expression to functional behaviour.
+
+These findings converge on a causal interpretation of affective geometry in LLMs. Removing emotion directions impairs affective reasoning, while injecting them predictably alters behaviour. Moreover, emotional information is not confined to isolated tokens or neurons, but is accumulated and summarised across layers into global latent variables that shape general affective capabilities of models.
+
+In conclusion, there is a principled foundation for vector-based manipulation of emotion, which enables us to express emotional nuance through numeric operations on embeddings rather than token-level substitutions. This causal grounding is essential for our project that seeks to control and align emotional behaviour in large language models.
+
+\section{Reasoning Beyond Token Space}
+
+\subsection{Limitations of Token-Based Reasoning}
+
+Conventional LLMs reason in token space. Because inputs are projected onto the discrete boundaries humanity drew as ``vocabulary,'' fine affective nuance and embodied subtleties are irretrievably lost during that projection, and what remains in one output language may differ from what remains in another. To adjust tone, one often uses prompt engineering or instruction tuning (``Please answer politely,'' etc.), but adherence is uncertain and fine-grained control is difficult. Other countermeasures include supervised fine-tuning to internalise a style, or label-conditioned generation (e.g.\, adding \texttt{<joy>} \texttt{<sad>}), but fine-tuning is costly and switching between styles is inflexible; label conditioning also cannot capture complex blends of nuance.
+
+Beyond affective control, the same limitation applies to reasoning itself. Autoregressive language models do not take token functionality into account in its generation process. Even if the token carries significant reasoning content, it will be allocated approximately same computational budget as grammartical tokens like \texttt{a} or \texttt{is}. As a result, only a small subset of internal states carries the actual inferential work, and most of the tokens in explicit reasoning traces do not contribute to the underlying computation.
+
+Recent works show this disconnectivity between the surface output tokens and internal reasoning process. Pfau et al.\ (2024)~\cite{pfau2024lets} demonstrate that transformers can perform non-trivial hidden computation even when output tokens are semantically uninformative. For example, inserting filler or pause tokens (carry no explicit meaning) somehow measurably improve performance on reasoning tasks. This suggests that the essential computation is carried by latent activations rather than by the emitted tokens themselves. Token generation only a communicative language constraint around an internal process.
+
+The inefficiency of token-based reasoning becomes more apparent when reasoning is explicitly verbalised. Chain-of-thought prompting improves performance in many tasks, however \textbf{it requires the model to externalise intermediate states into natural language, even when those states are not naturally linguistic}. As argued by Hao et al.\ (2025)~\cite{hao2025traininglargelanguagemodels}, language is optimised for communication rather than for computation. Forcing reasoning to unfold within the constraints of a discrete vocabulary introduces unnecessary overhead and distortion. Many reasoning tokens exist not because they are required for inference, but because they are required for human readability.
+
+From this perspective, explicit verbalisation constitutes a form of lossy compression for an affective reasoning as discussed in the previous section. The continuous and high-dimensional internal states during inference must be projected onto a discrete and culturally contingent token space, which flattens distinctions that are visible for computation but words-level invisible. This compression is problematic for affective computing, because emotion structure is inherently graded, which is resistant to precise lexicalisation.
+
+Taken together, these observations suggest that token space not a substrate of reasoning, but rather an interface. While it provides a convenient medium for communication and supervision, it is suboptimal for internal computation. This motivates a growing line of work that seeks to decouple reasoning from explicit token generation. Computation can proceed without the constraints imposed by language.
+
+\subsection{Reasoning in Continuous Latent Space}
+
+Motivated by the observation that reasoning is primarily carried by latent activations rather than surface tokens, a growing body of work has explored \textbf{implicit} forms of chain-of-thought. The central idea is to retain the intermediate reasoning within the model's hidden state, so that we can benefit from the multi-step reasoning while avoiding the distortions introduced by forcing intermediate states into natural language.
+
+Early implicit chain-of-thought approaches aim to internalise reasoning traces by gradually removing explicit reasoning tokens during training, encouraging the model to perform the same computation silently in its latent space. More recent methods go further by explicitly allocating computation to continuous latent representations that replace textual reasoning steps altogether. In these models, reasoning unfolds as a sequence of hidden-state transitions, while the output layer is used only to produce the final answer.
+
+A representative work is \textbf{CODI} (Compressing Chain-of-Thought into Continuous Space via Self-Distillation)~\cite{shen2025codicompressingchainofthoughtcontinuous}. This approach compresses explicit chain-of-thought trajectories into a compact sequence of continuous latent states, and by distilling a teacher model that produces explicit reasoning traces, CODI trains a student model to reproduce the same reasoning outcome using a shorter sequence of latent vectors. This demonstrates that the information carried by textual reasoning can be encoded more efficiently in continuous space, without requiring token-level supervision at inference time.
+
+A more radical approach is proposed by \textbf{Coconut} (Chain of Continuous Thought)~\cite{hao2025traininglargelanguagemodels}. Rather than compressing explicit reasoning traces, Coconut modifies the inference procedure itself by feeding the model’s last hidden state back as the next input embedding. In this way, reasoning unfolds entirely within continuous latent space and there is no need of intermediate textual tokens at all. However, because Coconut relies primarily on answer-level supervision, the resulting latent trajectories can be unstable when extended to deeper reasoning chains, which we discuss in the next subsection.
+
+\subsection{Implicit and Continuous Chain-of-Thought}
+
+However, there is one challenge that purely implicit reasoning introduces. When multiple latent reasoning steps are chained together without sufficient structural constraints, the latent representations can collapse into homogeneous states. This phenomenon is often referred to as \textbf{latent collapse}, which undermines the model’s ability to maintain distinct intermediate representations.
+
+\textbf{SIM-CoT} (Supervised Implicit Chain-of-Thought)~\cite{wei2025simcot} addresses this limitation by introducing step-level supervision during training. Instead of supervising only the final answer or the overall reasoning trajectory, SIM-CoT attaches an auxiliary decoder that forces each latent reasoning step to predict a corresponding explicit reasoning phrase. This alignment ensures that each latent vector encodes distinct, semantically meaningful content, preventing homogenisation and improving stability. Crucially, the auxiliary decoder is used only during training and is removed at inference, allowing the model to retain the efficiency of silent latent reasoning while benefiting from structured supervision. Empirically, SIM-CoT substantially improves both performance and robustness over earlier latent reasoning models, including Coconut-style architectures.
+
+It attaches an auxiliary decoder that forces each latent reasoning step to predict a corresponding explicit reasoning phrase, which ensures that each latent vector to encoded semantically meaningful content. This substantially improves both performance and robustness over earlier latent reasoning models, including Coconut-style architectures. Importantly, the auxiliary decoder is used only during training and is removed at inference, allowing the model to retain the efficiency of silent latent reasoning while benefiting from structured supervision.
+
+These approaches demonstrate that chain-of-thought need not be realised as a sequence of discrete tokens. Reasoning can be instead implemented as a controlled trajectory through continuous latent space, with explicit language serving primarily as a training scaffold or interpretability aid.  Implicit and continuous chain-of-thought models provide a natural foundation for studying how emotions may be represented and manipulated within latent reasoning processes.
+
+\subsection{Implications for Affective Representation}
+
+The developments reviewed above suggest a converging picture of representation and computation in LLMs. As discussed in earlier sections, emotions are not confined to discrete labels or lexical choices but it rather emerges as a continuous structure within latent space. At the same time, recent advances in implicit chain-of-thought demonstrate that reasoning itself can be implemented as a trajectory through that same latent space, without requiring intermediate symbolic tokens.
+
+These findings summarises to the fact that emotion need not be treated as separate components at the level of surface language. Instead, it appears to be grounded in shared latent representations that evolve over the course of inference. From this perspective, emotional information may constitute an integral part of the internal reasoning state itself, shaping how intermediate representations are formed and propagated.
+
+Importantly, this possibility remains largely unexplored. Although latent reasoning frameworks have demonstrated improved eff expressivity for logical and mathematical tasks, their implications for affective representation have not been systematically examined. Whether emotional dimensions align or interact with latent reasoning trajectories is an open question. Addressing this gap requires moving beyond token-level analysis and considering emotion as a first-class component of latent computation rather than as a stylistic attribute.
+
+These considerations motivate the investigation in the following chapters. Rather than treating emotion as an external label or an output constraint, we explore the hypothesis that affective states can be represented within continuous latent spaces that underlie reasoning itself. By doing so, we aim to better understand how emotional meaning may be re-expressed when language is no longer the primary medium of inference.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Project Plan}
+
+The project is divided into two major periods: a research phase to design the emotion code, and an implementation phase to build the synaesthetic emotion engine around that code.
+\begin{enumerate}
+    \item \textbf{Create dataset: excite model's emotions with diverse utterances and accumulate internal traces} 
+    
+    We hypothesise that model’s internal traces are elicited by phrases like ``Great job!'', ``Amazing!'' contains shapes of \textbf{joy-ness} that are independent of vocabulary and language. Concretely, we will create a large set of contrastive prompts that express the same emotion with different phrasings and across different languages, and we will accumulate the \textbf{reasoning traces} generated inside the model during inference.
+    \item \textbf{Discover primitive emotion basis vectors and steering vectors; design the emotion code} 
+
+    We will apply methods such as mean differences, PCA, and NMF to the collected traces to orthogonalise highly correlated directions and derive a primitive emotion basis. This rests on the assumption that an emotion like ``joy'' is, in fact, a composite of lower-level, primitive central cognitions. In other words, pre-verbal feelings may be representable as linear combinations of these primitive emotion basis vectors. We define this representation as the \textbf{emotion code}. For example, the ``deeply resonant nostalgia'' one feels when listening to a certain piece of music might be modelled as a combination like \verb|joy_0 + joy_1 + sad_4|. Constructed in this way, the emotion code functions as an equivalent representation that transcends vocabulary boundaries across languages and modalities.
+    \item \textbf{Implement the emotion-code-centred Emotion Engine} \par
+    We would like to explore the technical potential of the emotion-code-centred Emotion Engine; is it possible to steer model outputs towards a certain emotion code? 
+
+    To make the final system concrete and testable, the Emotion Engine will be exposed through an interactive user interface inspired by a DJ turntable. Rather than specifying emotions through discrete labels or textual instructions, users will directly manipulate a continuous emotion space in a tactile and intuitive manner.
+
+    When a user inputs a piece of text, the system first extracts its underlying emotional state and projects it as a direction in a low-dimensional affective space based on the pleasure–arousal–dominance (PAD) axes. This emotional vector is visualised in real time on the lower part of the interface, allowing users to see how the input text is situated in relation to core affective dimensions such as positivity, intensity, and control.
+
+    Crucially, the user can then interactively modify this emotion vector. By dragging the point within the PAD space or adjusting dedicated controls (analogous to turning knobs or sliders on a DJ console), the user can adjust specific affective components. These manipulations directly alter the underlying emotion code before language generation occurs.
+
+    The modified emotion code is subsequently applied as a steering signal during text generation, producing an output whose emotional tone reflects the user’s adjustments. This design allows users to explore how subtle changes in latent emotional representation translate into perceptible differences in generated language, offering an intuitive and continuous form of emotional control that is difficult to achieve with prompt-based methods.
+\end{enumerate}
+
+In this project, the \textbf{emotion code} applies steering vectors to control the emotion level of the output. We first decompose emotions such as joy/anger/sadness/surprise, define pre-named primitive emotion vectors, and express diverse pre-verbal states as linear combinations. For instance, the vector sum of joy and surprise can yield a code close to ``excitement.'' Vector arithmetic within emotion space thus enables continuous, multidimensional specification of emotion. Unlike coarse labels, the code allows numerical tuning of subtle tones. Functioning as an axis orthogonal to conceptual content, the same emotion code derived from text can be applied to image generation or speech synthesis~-- enabling cross-modal transfer of emotional tone.
+
+\section{Development Schedule}
+
+For the final product, the goal is to ensure that the results of actually manipulating the emotion vectors detected from the input text, as revealed through user testing, manifest as outputs that intuitively make sense.
+
+Research on steering vectors will fundamentally proceed using a GPT-2 model based on SIM-CoT operating with Python, aiming for release as a website with a React frontend and a .NET-based backend.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l|c c c c c c c c c}
+\toprule
+\textbf{Tasks} & Jan & Feb & Mar & Apr & May \\
+\midrule
+Dataset Preparation     & = & = &   &   &   \\
+Develop Emotion Codes   & = & = & = &   &   \\
+Text Steering           &   & = & = & = &   \\
+API \& Demo Release     &   &   &   & = & = \\
+\bottomrule
+\end{tabular}
+\caption{Development Schedule from 16/1/2026 to 31/5/2026}
+\end{table}
+
+\begin{itemize}
+  \item \textbf{Dataset Preparation}: Make a dataset that elicits a large model emotion.
+  \item \textbf{Develop Emotion Codes}: establish Emotion Code v0.1.
+  \item \textbf{Text Steering}: Improve on the text input → emotion vector editing → steered output process.
+  \item \textbf{API \& Demo Release}: Web demo with nice visualisation, and final report writing.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Evaluation Plan}
+
+The goal of evaluation in this project is to determine whether latent emotion vectors can be meaningfully and controllably manipulated.
+
+Specifically, we aim to evaluate whether:
+
+\begin{enumerate}
+    \item applying an emotion code produces predictable and directional changes in perceived emotional tone
+    \item the strength of emotional steering varies continuously with the magnitude of vector manipulation
+    \item such affective changes can be achieved without distorting the underlying semantic content of the text
+\end{enumerate}
+
+Because emotion perception is inherently subjective, this evaluation combines quantitative probes of consistency and monotonicity with human-annotator based assessments of intuitive validity.
+
+\section{Evaluation Setup}
+
+We prepare a set of input texts spanning neutral descriptions, short narratives and conversational utterances. For each input, the system first extracts a baseline emotion vector, which is then modified along one or more predefined directions.
+
+For controlled experiments, we consider three conditions:
+\begin{enumerate}
+    \item no steering (baseline)
+    \item single dimensional manipulation within the PAD space, where users adjust pleasure, arousal, or dominance
+    \item two-dimensional manipulations within the PAD space
+\end{enumerate}
+
+We define three primary metrics to evaluate the behaviour of the emotion code:
+\begin{enumerate}
+    \item \textbf{Shift Accuracy}: the proportion of cases in which human annotators agree that the steered output expresses a stronger presence of the target emotion than the baseline
+    \item \textbf{Intensity Monotonicity}: evaluates whether increasing the magnitude of a steering vector leads to a monotonic increase in perceived emotional intensity. This metric directly tests whether emotion behaves as a continuous and scalable latent variable.
+    \item \textbf{Content Stability}: whether semantic content is preserved under emotional steering. This is measured using a combination of human judgement and embedding-based semantic similarity in concept space.
+\end{enumerate}
+
+\section{Human-Centred Evaluation}
+
+In addition to controlled steering experiments, we would like to conduct a small-scale user study focusing on interactive manipulation of emotion vectors. Participants are presented with the PAD visualisation and are asked to modify the emotional state of a given input text to match an intended affective description (e.g. ``more tense but less negative'').
+
+We evaluate whether users can reliably reach similar regions of the PAD space for similar intentions, whether users report that changes in the output align with their intuitive expectations, and whether fine-grained adjustments lead to perceptible but non-disruptive changes in tone. This evaluation focuses on intuitive usability rather than task performance, reflecting the project’s goal of enabling pre-verbal emotional editing rather than emotion classification.
+
+\section{Failure Cases and Limitations}
+
+For the cases where steering fails to produce the intended emotional shift or results in semantic distortion, we would like to analyse how those happened. It might be the case that the steering magnitudes are too high for the humans to recognise the differences, or the interference between emotion dimensions. Such cases are not treated as errors but as signals of the limits of linear emotion composition and of the PAD projection itself, hence better ways of representing the latent emotion representation should be further investigated.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Ethical Issues}
+
+This project investigates an emotional AI engine that operates on the basis of latent representations of emotions. It will utilise recent concept-based reasoning paradigms (e.g.\ latent and implicit inference models) and use human judgement to evaluate the output. While the project does not involve invasive experiments or high-risk applications, it raises several ethical and legal considerations.
+
+\section{Ethical Considerations}
+The main ethical considerations relate to the involvement of human participants in the evaluation phase. Human evaluators are expected to assess the outputs of the model rather than disclose personal experiences or emotional states. Participation should be voluntary, and they should be free to withdraw at any time without consequence. The data collected shall be kept to a minimum (e.g.\ numerical evaluations and brief qualitative judgments only) and no personally identifiable information is requested.
+
+The second ethical consideration concerns the nature of the system under study. This project explores the expression and regulation of emotions in AI systems. There is a potential ethical risk that these technologies, if misused, could be perceived as enabling emotional manipulation and deceptive emotional signals. However, the manipulation techniques addressed in this study are essentially identical to the widely adopted usage patterns of LLMs today. For example, instructions such as ``Please write more carefully'' or ``Could you rephrase this in a gentler manner?'' are already routinely provided as prompts, and the models adjust the emotional tone of their output accordingly. In other words, the significance of this project lies not in endowing models with new capabilities for emotional manipulation, but in visualising the structures of emotional expression already present within the models. The target of manipulation is not human emotion but the latent representations within the model. The value of this research lies in treating the ambiguous tone adjustments already occurring as a subject of direct study, rather than leaving them as a black box.
+
+\section{Legal Considerations}
+
+The project will also use open source software, pre-trained models (e.g.\ GPT-2) and public datasets. These resources will be used strictly in accordance with their respective licences and for non-commercial academic research purposes only. No proprietary, restricted or export-controlled software or information will be generated.
+
+%% bibliography
+\bibliography{main}
+\bibliographystyle{unsrt}
+
+\end{document}
