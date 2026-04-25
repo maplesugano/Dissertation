@@ -854,3 +854,263 @@ class CoconutGPT_Same_Word_Embedding(nn.Module):
 
         else:
             return torch.tensor(tokens).view(1, -1)
+
+class CoconutGPT_Factored(nn.Module):
+    """Coconut with direct VAD regression heads and contrastive loss.
+
+    Architecture:
+    - base_causallm: generates latent continuous thoughts (identical to Coconut)
+    - vad_head: nn.Linear(hidden_size, 3) — predicts V, A, D from mean-pooled latent
+    - Contrastive loss aligns cosine similarity of latent reps to exp(-VAD distance)
+
+    Total loss = lm_loss + lambda_reg * mse(pred_vad, true_vad)
+                         + lambda_con * contrastive_loss
+    """
+
+    def __init__(
+        self,
+        base_causallm,
+        latent_token_id,
+        start_latent_id,
+        end_latent_id,
+        eos_token_id,
+        configs,
+    ):
+        super(CoconutGPT_Factored, self).__init__()
+        self.gen_forward_cnt = 0
+        self.base_causallm = base_causallm
+        self.latent_token_id = latent_token_id
+        self.eos_token_id = eos_token_id
+        self.start_latent_id = start_latent_id
+        self.end_latent_id = end_latent_id
+        self.config = configs
+
+        if isinstance(self.base_causallm, GPT2LMHeadModel):
+            self.embedding = self.base_causallm.transformer.get_input_embeddings()
+            hidden_size = self.base_causallm.config.hidden_size
+        else:
+            self.embedding = self.base_causallm.get_input_embeddings()
+            hidden_size = self.base_causallm.config.hidden_size
+
+        self.vad_head = nn.Linear(hidden_size, 3)
+        self.lambda_reg = getattr(configs, "lambda_reg", 1.0)
+        self.lambda_con = getattr(configs, "lambda_con", 0.1)
+        self.con_temp = getattr(configs, "con_temp", 1.0)
+        # Per-dimension loss weights: upweight A and D which are harder to encode
+        vad_weights = getattr(configs, "vad_weights", [1.0, 2.0, 2.0])
+        self.register_buffer("vad_weights", torch.tensor(vad_weights, dtype=torch.float32))
+        self.lambda_orth = getattr(configs, "lambda_orth", 0.0)
+
+    def _run_latent_passes(self, input_ids, attention_mask, position_ids):
+        """Fill latent token positions with continuous hidden states.
+        Returns (inputs_embeds, logits_cat, latent_lists).
+
+        Note: always computes from position 0 (no past_key_values) to stay
+        compatible with transformers >= 5.4 which changed the Cache API.
+        """
+        latent_indices = (input_ids == self.latent_token_id).nonzero()
+        latent_lists = [
+            [idx[1].item() for idx in latent_indices if idx[0] == i]
+            for i in range(input_ids.shape[0])
+        ]
+        max_n_latents = max([len(l) for l in latent_lists])
+        next_compute_range = (0, input_ids.shape[1])
+        inputs_embeds = self.embedding(input_ids)
+
+        if max_n_latents > 0:
+            next_compute_range = (0, latent_indices[:, 1].min().item())
+
+        logits = []
+
+        for pass_idx in range(max_n_latents):
+            # Always compute from position 0; slice logits to keep only the new segment.
+            outputs = self.base_causallm(
+                inputs_embeds=inputs_embeds[
+                    :, 0 : next_compute_range[1], :
+                ],
+                attention_mask=attention_mask[
+                    :, 0 : next_compute_range[1]
+                ],
+                position_ids=position_ids[
+                    :, 0 : next_compute_range[1]
+                ],
+                output_hidden_states=True,
+                use_cache=False,
+            )
+            hidden_states_offset = 0
+
+            # Keep only logits for the new tokens in this pass
+            logits.append(outputs.logits[:, next_compute_range[0] :, :])
+            next_compute_range = (
+                next_compute_range[1],
+                (
+                    input_ids.shape[1]
+                    if pass_idx + 1 >= max_n_latents
+                    else next_compute_range[1] + 1
+                ),
+            )
+
+            hidden_states = outputs.hidden_states[-1]
+
+            filling_indices = [
+                (instance_idx, mask_list[pass_idx])
+                for instance_idx, mask_list in enumerate(latent_lists)
+                if len(mask_list) > pass_idx
+            ]
+
+            tensor_list = [
+                [
+                    inputs_embeds[batch_idx, pos, :]
+                    for pos in range(inputs_embeds.shape[1])
+                ]
+                for batch_idx in range(inputs_embeds.shape[0])
+            ]
+
+            for idx_pair in filling_indices:
+                batch_idx, token_idx = idx_pair
+                tensor_list[batch_idx][token_idx] = hidden_states[
+                    batch_idx, token_idx - 1 - hidden_states_offset, :
+                ]
+
+            inputs_embeds = torch.stack(
+                [
+                    torch.stack(tensor_list[batch_idx])
+                    for batch_idx in range(inputs_embeds.shape[0])
+                ]
+            )
+
+        # Final pass over the full (latent-filled) sequence
+        outputs = self.base_causallm(
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            output_hidden_states=True,
+            use_cache=False,
+        )
+        logits.append(outputs.logits[:, next_compute_range[0] :, :])
+        self.gen_forward_cnt += max_n_latents + 1
+        logits_cat = torch.cat(logits, dim=-2)
+        return inputs_embeds, logits_cat, latent_lists
+
+    def forward(self, input_ids, attention_mask, labels, position_ids, **kwargs):
+        inputs_embeds, logits, latent_lists = self._run_latent_passes(
+            input_ids, attention_mask, position_ids
+        )
+
+        # Language modelling loss
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+        loss_fct = CrossEntropyLoss()
+        loss = loss_fct(
+            shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
+        )
+
+        # Regression + contrastive losses (only when VAD ground-truth is provided)
+        if "vad_values" in kwargs and kwargs["vad_values"] is not None:
+            vad_gt = kwargs["vad_values"].to(inputs_embeds.device)  # (bz, 3)
+            bz = inputs_embeds.shape[0]
+
+            # Mean-pool all latent positions per sample
+            latent_reps = []
+            for b in range(bz):
+                if latent_lists[b]:
+                    rep = inputs_embeds[b, latent_lists[b], :].mean(dim=0)
+                else:
+                    rep = inputs_embeds[b, -1, :]
+                latent_reps.append(rep)
+            latent_reps = torch.stack(latent_reps)  # (bz, hidden_size)
+
+            # Per-dimension regression supervision with dimension-wise weights
+            pred_vad = self.vad_head(latent_reps)  # (bz, 3)
+            per_dim_mse = ((pred_vad - vad_gt) ** 2).mean(dim=0)  # (3,)
+            reg_loss = (per_dim_mse * self.vad_weights).sum()
+            loss = loss + self.lambda_reg * reg_loss
+
+            # Per-dimension contrastive: each VAD dim gets its own similarity target
+            if bz > 1:
+                norm_reps = nn.functional.normalize(latent_reps, dim=-1)
+                cos_sim = torch.mm(norm_reps, norm_reps.t())  # (bz, bz)
+                mask = ~torch.eye(bz, dtype=torch.bool, device=inputs_embeds.device)
+                con_loss = torch.tensor(0.0, device=inputs_embeds.device)
+                for dim_i, w in enumerate(self.vad_weights):
+                    dim_vals = vad_gt[:, dim_i:dim_i+1]  # (bz, 1)
+                    dim_dist = torch.cdist(dim_vals, dim_vals, p=1)  # (bz, bz)
+                    target_sim = torch.exp(-dim_dist / self.con_temp)
+                    con_loss = con_loss + w * nn.functional.mse_loss(
+                        cos_sim[mask], target_sim[mask]
+                    )
+                loss = loss + self.lambda_con * con_loss
+
+            # Orthogonality regularisation: encourage V/A/D probe directions to be distinct
+            if self.lambda_orth > 0:
+                W = self.vad_head.weight  # (3, hidden_size)
+                W_norm = nn.functional.normalize(W, dim=-1)
+                gram = torch.mm(W_norm, W_norm.t())  # (3, 3)
+                eye3 = torch.eye(3, device=W.device)
+                orth_loss = nn.functional.mse_loss(gram, eye3)
+                loss = loss + self.lambda_orth * orth_loss
+
+        return Outputs(loss=loss, inputs_embeds=inputs_embeds, logits=logits)
+
+    def train(self):
+        self.base_causallm.train()
+        self.vad_head.train()
+
+    def eval(self):
+        self.base_causallm.eval()
+        self.vad_head.eval()
+
+    def generate(
+        self,
+        input_ids,
+        attention_mask,
+        max_new_tokens=16,
+        output_embedding=False,
+        synced_gpus=False,
+        **kwargs,
+    ):
+        self.gen_forward_cnt = 0
+        assert input_ids.shape[0] == 1, "only support batch_size == 1 now"
+
+        tokens = input_ids[0].detach().tolist()
+
+        labels = input_ids.clone()
+        # Forward without vad_values so auxiliary losses are skipped
+        outputs = self.forward(
+            input_ids,
+            torch.ones_like(input_ids, device=input_ids.device),
+            labels,
+            torch.arange(
+                0, input_ids.shape[1], dtype=torch.long, device=input_ids.device
+            ).reshape(1, -1),
+        )
+        inputs_embeds = outputs.inputs_embeds
+
+        next_token = torch.argmax(outputs.logits[0, -1]).item()
+        tokens.append(next_token)
+        new_token_embed = self.embedding(
+            torch.tensor(next_token, device=input_ids.device)
+        ).view(1, 1, -1)
+        new_inputs_embeds = torch.cat((inputs_embeds, new_token_embed), dim=1)
+
+        for _ in range(max_new_tokens - 1):
+            outputs = self.base_causallm(inputs_embeds=new_inputs_embeds)
+            self.gen_forward_cnt += 1
+            next_token = torch.argmax(outputs.logits[0, -1]).item()
+            if next_token == self.eos_token_id:
+                break
+            tokens.append(next_token)
+            new_token_embed = self.embedding(
+                torch.tensor(next_token, device=input_ids.device)
+            ).view(1, 1, -1)
+            new_inputs_embeds = torch.cat((new_inputs_embeds, new_token_embed), dim=1)
+
+        if synced_gpus:
+            while self.gen_forward_cnt < max_new_tokens + MAX_N_LATENT:
+                self.gen_forward_cnt += 1
+                _ = self.base_causallm(inputs_embeds=new_inputs_embeds)
+
+        if output_embedding:
+            return torch.tensor(tokens).view(1, -1), new_inputs_embeds
+        else:
+            return torch.tensor(tokens).view(1, -1)

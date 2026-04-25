@@ -16,7 +16,7 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 
-from coconut import Coconut, CoconutGPT_Same_Word_Embedding
+from coconut import Coconut, CoconutGPT_Same_Word_Embedding, CoconutGPT_Factored
 from dataset import (
     get_dataset,
     get_question_latent_dataset,
@@ -117,7 +117,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(configs.model_id)
     model.to(local_rank)
 
-    if configs.mode != "coconut_baseline":
+    if configs.mode not in ("coconut_baseline", "coconutgpt_factored"):
         explainable_model = AutoModelForCausalLM.from_pretrained(configs.model_id)
         explainable_model.to(local_rank)
 
@@ -185,6 +185,8 @@ def main():
             model = CoconutGPT_Same_Word_Embedding(model, explainable_model, tokenizer, latent_id, start_id, end_id, tokenizer.eos_token_id, tokenizer.convert_tokens_to_ids("<<"), configs.c_thought, configs)
         elif configs.mode == 'coconut_baseline':
             model = Coconut(model, latent_id, start_id, end_id, tokenizer.eos_token_id)
+        elif configs.mode == 'coconutgpt_factored':
+            model = CoconutGPT_Factored(model, latent_id, start_id, end_id, tokenizer.eos_token_id, configs)
         else:
             raise ValueError(f"don't support model {configs.mode=}")
 
@@ -524,6 +526,7 @@ def main():
                         **batch,
                         max_new_tokens=max_new_tokens,
                         synced_gpus=not configs.only_eval,
+                        pad_token_id=tokenizer.eos_token_id,
                     )
                     
                     text_output = tokenizer.decode(outputs[0], skip_special_tokens=True)

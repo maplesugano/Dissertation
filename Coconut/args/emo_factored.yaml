@@ -1,0 +1,58 @@
+project: coconut
+save_path: ./ckpts
+name: emo_coconut_factored_v2
+
+only_eval: False
+
+coconut: True
+cot: False
+no_thoughts: False
+no_cot: False
+coconutgpt: False
+
+c_thought: 2
+epochs_per_stage: 3
+max_latent_stage: 5
+pad_latent_to_max: True
+
+save_only_improve: False
+uniform_prob: 0.0
+
+model_id: ./pretrained/gpt2
+# Warm-start from the best factored checkpoint (already trained with base factored setup)
+load_model_path: ./ckpts/emo_coconut_factored/checkpoint_35
+
+wandb: False
+seed: 0
+resume: 0
+bf16: False
+
+train_path: ./data/emotion_train.json
+val_path: ./data/emotion_test.json
+
+reset_optimizer: True
+batch_size_training: 8
+debug: False
+gradient_accumulation_steps: 1
+num_epochs: 35
+lr: !!float "1e-4"
+weight_decay: 0.01
+
+mode: coconutgpt_factored
+training_method: full
+
+# --- auxiliary loss weights ---
+# lambda_reg: weight for MSE regression loss on mean-pooled latent -> VAD
+lambda_reg: 1.0
+# lambda_con: weight for contrastive alignment loss
+lambda_con: 0.1
+# con_temp: temperature for exp(-dist/temp) target similarity
+con_temp: 1.0
+# vad_weights: per-dimension loss weights [V, A, D]
+# A and D upweighted because they are harder to linearly encode in latent space
+vad_weights: [1.0, 2.0, 2.0]
+# lambda_orth: weight for orthogonality regularisation on vad_head weight rows
+# encourages V/A/D to occupy distinct directions in latent space (0.0 = disabled)
+lambda_orth: 0.1
+
+train_or_eval: train

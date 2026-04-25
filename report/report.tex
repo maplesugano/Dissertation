@@ -370,6 +370,158 @@ We evaluate whether users can reliably reach similar regions of the PAD space fo
 For the cases where steering fails to produce the intended emotional shift or results in semantic distortion, we would like to analyse how those happened. It might be the case that the steering magnitudes are too high for the humans to recognise the differences, or the interference between emotion dimensions. Such cases are not treated as errors but as signals of the limits of linear emotion composition and of the PAD projection itself, hence better ways of representing the latent emotion representation should be further investigated.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Implementation and Preliminary Experiments}
+
+This chapter describes the first phase of implementation, which focuses on adapting the Coconut latent reasoning architecture to the affective regression task and diagnosing the representational capacity of the resulting latent space.
+
+\section{Dataset}
+
+All experiments use the \textbf{EmoBank} corpus~\cite{buechel-hahn-2017-emobank}, a sentence-level dataset annotated with continuous Pleasure--Arousal--Dominance (PAD) scores on a scale from 1 to 5.
+The dataset was split into 7{,}801 training samples and 861 test samples.
+Each training instance consists of an input sentence paired with a gold PAD triple $\{V, A, D\} \in [1,5]^3$.
+Reasoning-step annotations were generated offline using GPT-4o and cached as a \texttt{JSONL} file, providing a chain-of-thought scaffold for the staged training curriculum described below.
+
+\section{Model Variants}
+
+Four model variants were trained and evaluated, all using GPT-2 (117M parameters)~\cite{radford2019language} as the backbone.
+
+\paragraph{CoT baseline.}
+A standard chain-of-thought model in which each training example is formatted as a free-text reasoning trace followed by the gold PAD answer.
+The model is supervised with cross-entropy on the full token sequence.
+
+\paragraph{Coconut baseline.}
+The original Coconut architecture~\cite{hao2025traininglargelanguagemodels} replaces textual reasoning tokens with a fixed number of \emph{latent tokens}.
+At each training stage $k$, the first $k$ reasoning steps are replaced by latent embeddings that are filled in with the model's own hidden states in a multi-pass forward procedure.
+The number of latent tokens per stage is controlled by the hyperparameter $c_{\text{thought}} = 2$, and up to $k_{\max} = 5$ stages are scheduled.
+
+\paragraph{CoconutGPT-SimCoT.}
+Extends the Coconut baseline with an auxiliary explainability head that, during training only, decodes each latent reasoning step into a natural-language phrase.
+This is analogous to the SIM-CoT supervision strategy~\cite{wei2025simcot} and is intended to prevent latent collapse by ensuring each latent vector encodes semantically distinct content.
+
+\paragraph{CoconutGPT-Factored.}
+A new architecture introduced in this project.
+Two auxiliary losses are added on top of the Coconut latent pass:
+\begin{enumerate}
+    \item \textbf{VAD regression loss.} A linear head $\mathbf{W}_{\text{vad}} \in \mathbb{R}^{3 \times d}$ maps the mean-pooled latent representations to a predicted PAD triple $\hat{\mathbf{v}} \in \mathbb{R}^3$.
+    The regression loss is:
+    \[
+        \mathcal{L}_{\text{reg}} = \frac{1}{3} \|\hat{\mathbf{v}} - \mathbf{v}^*\|_2^2
+    \]
+    where $\mathbf{v}^* = (V^*, A^*, D^*)$ is the gold annotation.
+
+    \item \textbf{Contrastive geometric loss.} Within each mini-batch of size $B$, the cosine similarity matrix of mean-pooled latent vectors is aligned to a target similarity derived from PAD-space Euclidean distance:
+    \[
+        s_{ij}^* = \exp\!\left(-\frac{\|\mathbf{v}_i^* - \mathbf{v}_j^*\|_2}{\tau}\right), \quad i \neq j
+    \]
+    The contrastive loss is the mean squared error between the computed cosine similarities and $s_{ij}^*$ over all off-diagonal pairs.
+\end{enumerate}
+
+The total training objective is:
+\[
+    \mathcal{L} = \mathcal{L}_{\text{LM}} + \lambda_{\text{reg}}\,\mathcal{L}_{\text{reg}} + \lambda_{\text{con}}\,\mathcal{L}_{\text{con}}
+\]
+with $\lambda_{\text{reg}} = 1.0$, $\lambda_{\text{con}} = 0.1$, and $\tau = 1.0$.
+The model is warm-started from the Coconut baseline checkpoint.
+
+\section{Phase 1: Linear Probe Diagnosis}
+
+Before training CoconutGPT-Factored, we conducted a linear probing experiment to determine whether PAD information was already linearly decodable from the Coconut baseline's latent representations.
+
+For each sample, a forward pass was performed through the Coconut baseline (checkpoint at epoch 25).
+The mean-pooled hidden states at all latent token positions were extracted as a 768-dimensional vector.
+A Ridge regression probe was then trained on the 7{,}801 training representations and evaluated on the 861 test representations independently for each PAD dimension.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Dimension} & \textbf{Pearson $r$ (test)} & \textbf{$R^2$ (test)} & \textbf{$R^2$ (train)} \\
+\midrule
+Valence (V)   & 0.695 & \phantom{$-$}0.474 & 0.860 \\
+Arousal (A)   & 0.371 & $-$0.000 & 0.804 \\
+Dominance (D) & 0.409 & \phantom{$-$}0.101 & 0.676 \\
+\bottomrule
+\end{tabular}
+\caption{Linear probe results on the Coconut baseline latent representations. Arousal shows near-zero test $R^2$, indicating that the information is not linearly encoded in the baseline latent space.}
+\label{tab:probe_baseline}
+\end{table}
+
+The results reveal a clear asymmetry: Valence is moderately recoverable (Pearson $r = 0.695$), consistent with the hypothesis that surface-level lexical sentiment is already encoded in the latent representations.
+By contrast, Arousal achieves a test $R^2$ of $-0.000$, which is below the constant-mean baseline, and Dominance achieves only $R^2 = 0.101$.
+The large gap between training and test $R^2$ across all dimensions indicates that the latent space is high-dimensional relative to the amount of affective information it encodes, leading to over-fitting in the probe even with regularisation.
+
+This diagnostic confirms the central hypothesis motivating CoconutGPT-Factored: \textbf{the Coconut baseline does not encode Arousal or Dominance in its latent representations}, which directly explains its inferior performance on those dimensions relative to the CoT model.
+
+\section{Evaluation Metrics}
+
+All models are evaluated on the 861-sample test split using the following metrics:
+
+\begin{itemize}
+    \item \textbf{Pearson $r$} per PAD dimension, measuring linear correlation between predicted and gold values.
+    \item \textbf{Tolerance accuracy}: the proportion of test samples for which all three predicted dimensions fall within $\pm 0.25$ of the gold values.
+    \item \textbf{MAE} and \textbf{RMSE} over all three dimensions.
+\end{itemize}
+
+Predicted PAD values are extracted by parsing the model's generated output string.
+
+\section{Results}
+
+Table~\ref{tab:main_results} summarises the evaluation results for all four models.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{Pearson V} & \textbf{Pearson A} & \textbf{Pearson D} & \textbf{Tol-Acc} \\
+\midrule
+CoT baseline             & 0.6858 & 0.4494 & 0.4548 & 46.92\% \\
+Coconut baseline         & 0.6841 & 0.3417 & 0.3363 & 47.74\% \\
+CoconutGPT-SimCoT        & 0.6768 & 0.2910 & 0.3261 & 42.86\% \\
+\textbf{CoconutGPT-Factored} & \textbf{0.8466} & \textbf{0.8119} & \textbf{0.8411} & 45.30\% \\
+\bottomrule
+\end{tabular}
+\caption{Pearson correlation and tolerance accuracy on the EmoBank test set. CoconutGPT-Factored substantially outperforms all baselines on Arousal and Dominance.}
+\label{tab:main_results}
+\end{table}
+
+CoconutGPT-Factored achieves a substantial improvement on Arousal (0.34 $\to$ 0.81) and Dominance (0.34 $\to$ 0.84), confirming that the VAD regression loss successfully drives the model to encode these dimensions.
+Valence also improves from 0.68 to 0.85.
+Tolerance accuracy (0.453) is slightly lower than the Coconut baseline (0.477), reflecting the fact that absolute numeric precision is a stricter criterion than linear correlation.
+
+A follow-up linear probe on the CoconutGPT-Factored representations (Table~\ref{tab:probe_factored}) reveals that, while Valence probe accuracy improves slightly ($r = 0.695 \to 0.732$), Arousal and Dominance probes remain weak ($r \approx 0.37$).
+This apparent contradiction -- strong end-to-end performance but weak linear probe -- indicates that the VAD information is encoded in a form that is accessible to the \texttt{vad\_head} but not to a purely linear probe trained on question-only contexts.
+The discrepancy arises because the probe operates on latent vectors extracted before the answer prefix, whereas the \texttt{vad\_head} at inference time has access to the full context including the answer preamble.
+This is an important limitation that motivates future work on aligning the latent space geometry with the PAD axes more directly.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Dimension} & \textbf{Pearson $r$ (test)} & \textbf{$R^2$ (test)} & \textbf{$R^2$ (train)} \\
+\midrule
+Valence (V)   & 0.732 & 0.535 & 0.972 \\
+Arousal (A)   & 0.366 & 0.025 & 0.946 \\
+Dominance (D) & 0.383 & 0.086 & 0.931 \\
+\bottomrule
+\end{tabular}
+\caption{Linear probe results on CoconutGPT-Factored latent representations. Despite strong end-to-end performance, Arousal and Dominance remain weakly decodable by a linear probe on question-only contexts.}
+\label{tab:probe_factored}
+\end{table}
+
+\section{Discussion}
+
+The results of this first experimental phase establish two key findings.
+
+First, the linear probe confirms that the Coconut baseline's latent space does not encode Arousal or Dominance, which explains why it underperforms the CoT model despite having access to additional computation via continuous latent tokens.
+The latent tokens in the Coconut baseline appear to serve primarily as a computation budget for Valence-related reasoning, which is strongly correlated with surface-level lexical sentiment.
+
+Second, the addition of direct VAD supervision via the regression and contrastive losses in CoconutGPT-Factored yields dramatic improvements on Arousal and Dominance, surpassing the CoT baseline by a large margin.
+This demonstrates that continuous latent space reasoning, when appropriately supervised, can encode richer affective structure than token-level generation alone.
+
+Nevertheless, the weak linear probe results on the Factored model suggest that the improvement is driven by the \texttt{vad\_head} decoding during generation, rather than by a fundamental reorganisation of the latent geometry.
+Achieving a latent space that is intrinsically aligned with PAD axes -- such that the latent vectors themselves constitute interpretable, steerable affective representations -- remains an open challenge and constitutes the primary direction for the next phase of this project.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Ethical Issues}
 
 This project investigates an emotional AI engine that operates on the basis of latent representations of emotions. It will utilise recent concept-based reasoning paradigms (e.g.\ latent and implicit inference models) and use human judgement to evaluate the output. While the project does not involve invasive experiments or high-risk applications, it raises several ethical and legal considerations.

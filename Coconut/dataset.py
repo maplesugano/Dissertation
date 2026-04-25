@@ -30,8 +30,10 @@ def get_dataset(path, tokenizer, max_size=1000000000):
         answer = sample["answer"]
         if isinstance(answer, dict):
             answer_str = "V={V:.2f} A={A:.2f} D={D:.2f}".format(**answer)
+            vad_values = [float(answer.get("V", 0.0)), float(answer.get("A", 0.0)), float(answer.get("D", 0.0))]
         else:
             answer_str = str(answer)
+            vad_values = [0.0, 0.0, 0.0]
         answer_tokenized = tokenizer.encode(
             "### " + answer_str, add_special_tokens=False
         ) + [tokenizer.eos_token_id]
@@ -41,6 +43,7 @@ def get_dataset(path, tokenizer, max_size=1000000000):
             "steps_tokenized": steps_tokenized,
             "answer_tokenized": answer_tokenized,
             "idx": sample["idx"],
+            "vad_values": vad_values,
         }
         return sample
 
@@ -187,7 +190,7 @@ class MyExplainableCollator:
             {
                 k: v
                 for k, v in feature.items()
-                if k != label_name and k != "position_ids"
+                if k != label_name and k != "position_ids" and k != "vad_values"
             }
             for feature in features
         ]
@@ -235,6 +238,12 @@ class MyExplainableCollator:
             batch["position_ids"] = torch.tensor(
                 batch["position_ids"], dtype=torch.int64
             )
+
+        if "vad_values" in features[0]:
+            batch["vad_values"] = torch.tensor(
+                [feature["vad_values"] for feature in features], dtype=torch.float32
+            )
+
         return batch
 
 @dataclass
@@ -295,7 +304,7 @@ class MyCollator:
             {
                 k: v
                 for k, v in feature.items()
-                if k != label_name and k != "position_ids"
+                if k != label_name and k != "position_ids" and k != "vad_values"
             }
             for feature in features
         ]
@@ -341,6 +350,11 @@ class MyCollator:
             ]
             batch["position_ids"] = torch.tensor(
                 batch["position_ids"], dtype=torch.int64
+            )
+
+        if "vad_values" in features[0]:
+            batch["vad_values"] = torch.tensor(
+                [feature["vad_values"] for feature in features], dtype=torch.float32
             )
 
         return batch
@@ -460,6 +474,7 @@ def get_cot_latent_dataset(
             "attention_mask": [1] * len(tokens),
             "idx": sample["idx"],
             "position_ids": list(range(len(tokens))),
+            "vad_values": list(sample.get("vad_values", [0.0, 0.0, 0.0])),
         }
 
     if torch.cuda.device_count() > 1:

@@ -1,16 +1,16 @@
 project: coconut
 save_path: ./ckpts
-name: emo_coconut_simcot
+name: emo_coconut_factored_v2_eval
 
-only_eval: False
+only_eval: True
 
 coconut: True
 cot: False
 no_thoughts: False
 no_cot: False
-coconutgpt: True
+coconutgpt: False
 
-c_thought: 3
+c_thought: 2
 epochs_per_stage: 3
 max_latent_stage: 5
 pad_latent_to_max: True
@@ -18,30 +18,32 @@ pad_latent_to_max: True
 save_only_improve: False
 uniform_prob: 0.0
 
-# Model and checkpoint paths (portable)
 model_id: ./pretrained/gpt2
-load_model_path: ./ckpts/emo-coconut/checkpoint_25
+load_model_path: ./ckpts/emo_coconut_factored_v2/checkpoint_35
 
 wandb: False
 seed: 0
 resume: 0
 bf16: False
 
-# for debug
 train_path: ./data/emotion_train.json
 val_path: ./data/emotion_test.json
 
-reset_optimizer: True
+reset_optimizer: False
 batch_size_training: 8
 debug: False
 gradient_accumulation_steps: 1
-num_epochs: 35
+num_epochs: 1
 lr: !!float "1e-4"
 weight_decay: 0.01
 
-w_prompt: False
-mode: coconutgpt_same_word_embedding
-explain_mode: v1_aug
-
-# freeze or not: full, only_base_causallm, only_expainable_llm
+mode: coconutgpt_factored
 training_method: full
+
+lambda_reg: 1.0
+lambda_con: 0.1
+con_temp: 1.0
+vad_weights: [1.0, 2.0, 2.0]
+lambda_orth: 0.1
+
+train_or_eval: eval

@@ -1,0 +1,56 @@
+(.venv) maplesugano@maplesugano:~/proj/Dissertation/Coconut$ python probe_latent.py     --checkpoint ./ckpts/emo-coconut/checkpoint_25     --mode coconut_baseline     --model_id ./pretrained/gpt2     --train_path ./data/emotion_train.json     --val_path ./data/emotion_test.json     --c_thought 2     --max_latent_stage 5 2>&1
+The new embeddings will be initialized from a multivariate normal distribution that has old embeddings' mean and covariance. As described in this article: https://nlp.stanford.edu/~johnhew/vocab-expansion.html. To disable this, use `mean_resizing=False`
+Loading checkpoint from ./ckpts/emo-coconut/checkpoint_25
+/home/maplesugano/proj/Dissertation/Coconut/probe_latent.py:178: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  saved_weights = torch.load(args.checkpoint, map_location="cpu")
+  missing: 0  unexpected: 0
+
+Collecting latent representations (train split) ...
+Map (num_proc=32): 100%|██████████████████████████████████████████████████████████████████████████| 7801/7801 [00:01<00:00, 4884.57 examples/s]
+Map: 100%|███████████████████████████████████████████████████████████████████████████████████████| 7801/7801 [00:00<00:00, 24866.22 examples/s]
+Collecting latents: 100%|██████████████████████████████████████████████████████████████████████████████████| 7801/7801 [07:49<00:00, 16.60it/s]
+  collected 7801 samples, latent dim=768
+
+Collecting latent representations (test split) ...
+Map (num_proc=32): 100%|█████████████████████████████████████████████████████████████████████████████| 861/861 [00:00<00:00, 963.99 examples/s]
+Map: 100%|█████████████████████████████████████████████████████████████████████████████████████████| 861/861 [00:00<00:00, 26680.77 examples/s]
+Collecting latents: 100%|████████████████████████████████████████████████████████████████████████████████████| 861/861 [00:49<00:00, 17.31it/s]
+  collected 861 samples
+
+=== Linear probe results ===
+/home/maplesugano/proj/Dissertation/.venv/lib/python3.11/site-packages/scipy/_lib/_util.py:1233: LinAlgWarning: Ill-conditioned matrix (rcond=1.70861e-08): result may not be accurate.
+  return f(*arrays, *other_args, **kwargs)
+  [V]  R² train=0.8598  R² test=0.4736  Pearson test=0.6950
+/home/maplesugano/proj/Dissertation/.venv/lib/python3.11/site-packages/scipy/_lib/_util.py:1233: LinAlgWarning: Ill-conditioned matrix (rcond=1.70861e-08): result may not be accurate.
+  return f(*arrays, *other_args, **kwargs)
+  [A]  R² train=0.8044  R² test=-0.0002  Pearson test=0.3710
+/home/maplesugano/proj/Dissertation/.venv/lib/python3.11/site-packages/scipy/_lib/_util.py:1233: LinAlgWarning: Ill-conditioned matrix (rcond=1.70861e-08): result may not be accurate.
+  return f(*arrays, *other_args, **kwargs)
+  [D]  R² train=0.6756  R² test=0.1010  Pearson test=0.4088
+
+Summary:
+  V: Pearson=0.6950  R²_test=0.4736  R²_train=0.8598
+  A: Pearson=0.3710  R²_test=-0.0002  R²_train=0.8044
+  D: Pearson=0.4088  R²_test=0.1010  R²_train=0.6756
+
+1. 過学習が激しい（ill-conditioned matrix 警告）
+
+768次元の潜在ベクトルの次元間に強い線形依存性がある（実質的なランクが低い）。Ridgeプローブが訓練データには過剰適合しているが、テストには汎化できていない。
+
+次元	R²_train	R²_test	差
+V	0.8598	0.4736	0.39
+A	0.8044	-0.0002	0.80
+D	0.6756	0.1010	0.57
+2. V（感情価）はすでに潜在空間に存在する
+
+Pearson=0.695 — 直接評価のCoT (0.686) と同等。Valenceはテキストの表面的な語彙（ポジティブ/ネガティブな単語）から拾えるので、Coconutでも自然に学習される。
+
+3. A（覚醒度）とD（支配性）は潜在空間に存在しない**
+
+A: R²_test = -0.0002 → 平均予測以下。ランダムより悪い。
+D: R²_test = 0.10 → ほぼ無情報。
+これがCoconutがCoTより劣る根本原因です。モデルは潜在トークンをValence偏重の表現に使っており、ArousalとDominanceの情報を符号化していない。
+
+結論・次のステップ
+
+この診断でCoconutGPT_Factoredの必要性が確認されました。明示的なVAD回帰損失 (lambda_reg × MSE(pred_vad, gt_vad)) と対照損失を加えることで、潜在空間にA/Dの情報を強制的に埋め込むのが目的です。
